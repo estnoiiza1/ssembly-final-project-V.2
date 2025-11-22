@@ -1,11 +1,12 @@
 // ==========================================
-//  ASSEMBLY APP BACKEND (FINAL VERSION)
+//  ASSEMBLY APP BACKEND (V28 - Production Ready)
 // ==========================================
 
 const express = require('express');
 const cors = require('cors');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb'); 
 const admin = require('firebase-admin'); 
+const path = require('path'); // (ใหม่!) นำเข้า path เพื่อจัดการไฟล์
 require('dotenv').config(); 
 
 // --- 1. การตั้งค่า (Configuration) ---
@@ -33,6 +34,11 @@ let db;
 app.use(cors());
 app.use(express.json());
 
+// --- (ใหม่!) ตั้งค่าให้ Server เสิร์ฟไฟล์หน้าบ้าน (HTML/JS) ---
+// บรรทัดนี้สำคัญมาก! มันทำให้ Render รู้จักไฟล์ index.html, admin.html ฯลฯ
+app.use(express.static(path.join(__dirname, '.')));
+
+
 // --- 3. ฟังก์ชันเชื่อมต่อฐานข้อมูล ---
 async function connectToDatabase() {
   try {
@@ -49,6 +55,11 @@ async function connectToDatabase() {
 // ==========================================
 //               API ROUTES
 // ==========================================
+
+// (ใหม่!) Route หน้าแรก (/) -> ส่ง index.html
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
 
 // 1. สมัครสมาชิก
 app.post('/register', async (req, res) => {
@@ -69,7 +80,7 @@ app.post('/register', async (req, res) => {
   } catch (err) { res.status(500).send({ error: 'Error' }); }
 });
 
-// 2. เข้าสู่ระบบ (อัปเดตสถานะ Online)
+// 2. เข้าสู่ระบบ
 app.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -84,7 +95,7 @@ app.post('/login', async (req, res) => {
   } catch (err) { res.status(500).send({ error: 'Error' }); }
 });
 
-// 3. ออกจากระบบ (อัปเดตสถานะ Offline)
+// 3. ออกจากระบบ
 app.post('/logout', async (req, res) => {
     try {
         const { userId } = req.body;
@@ -101,7 +112,7 @@ app.get('/get-active-users', async (req, res) => {
     } catch (err) { res.status(500).send({ error: 'Error' }); }
 });
 
-// 5. บันทึก QC (OK/NG/Rework) - รองรับ Part Code
+// 5. บันทึก QC
 app.post('/log-qc', async (req, res) => {
   try {
     const { model, part_code, status, defect, userId, username, side } = req.body;
@@ -110,12 +121,12 @@ app.post('/log-qc', async (req, res) => {
       side: side || null, timestamp: new Date(), user_id: new ObjectId(userId), username
     };
     await db.collection('qc_log').insertOne(newLogEntry);
-    console.log(`✅ QC: ${username} -> ${status} [${part_code || model}]`);
+    console.log(`✅ QC: ${username} -> ${status}`);
     res.status(201).send({ message: 'Saved' });
   } catch (err) { res.status(500).send({ error: 'Error' }); }
 });
 
-// 6. Undo ข้อมูลล่าสุด
+// 6. Undo
 app.post('/undo-last-qc', async (req, res) => {
     try {
       const { userId } = req.body;
@@ -126,17 +137,17 @@ app.post('/undo-last-qc', async (req, res) => {
     } catch (err) { res.status(500).send({ error: 'Error' }); }
 });
 
-// 7. ล้างข้อมูลวันนี้
+// 7. Reset Day
 app.post('/reset-today', async (req, res) => {
     try {
       const { userId } = req.body;
       const today = new Date(); today.setHours(0,0,0,0);
-      await db.collection('qc_log').deleteMany({ user_id: new ObjectId(userId), timestamp: { $gte: today } });
+      const result = await db.collection('qc_log').deleteMany({ user_id: new ObjectId(userId), timestamp: { $gte: today } });
       res.status(200).send({ message: 'Reset Done' });
     } catch (err) { res.status(500).send({ error: 'Error' }); }
 });
 
-// 8. ดึงยอด Operator (รวม Rack Logic)
+// 8. Get Stats (Operator)
 app.get('/get-stats/:userId', async (req, res) => {
   try {
     const { userId } = req.params; const { model } = req.query;
@@ -156,7 +167,7 @@ app.get('/get-stats/:userId', async (req, res) => {
   } catch (err) { res.status(500).send({ error: 'Error' }); }
 });
 
-// 9. บันทึก Plan (แยกกะ)
+// 9. Set Plan
 app.post('/set-plan', async (req, res) => {
   try {
     const { date_string, model, shift, target_quantity } = req.body;
@@ -169,7 +180,7 @@ app.post('/set-plan', async (req, res) => {
   } catch (err) { res.status(500).send({ error: 'Error' }); }
 });
 
-// 10. Admin Dashboard (รวมทุกอย่าง)
+// 10. Admin Dashboard
 app.get('/get-admin-dashboard', async (req, res) => {
   try {
     const { start, end, model, shift } = req.query; 
@@ -193,7 +204,6 @@ app.get('/get-admin-dashboard', async (req, res) => {
 
     if (model && model !== "") { qcQuery.model = model; planQuery.model = model; }
 
-    // 10.1 KPI
     const totalOK = await db.collection('qc_log').countDocuments({ ...qcQuery, status: 'OK' });
     const totalNG = await db.collection('qc_log').countDocuments({ ...qcQuery, status: 'NG' });
     const totalRework = await db.collection('qc_log').countDocuments({ ...qcQuery, status: 'REWORK' });
@@ -202,14 +212,12 @@ app.get('/get-admin-dashboard', async (req, res) => {
     let totalPlan = 0;
     plans.forEach(p => totalPlan += p.target_quantity);
 
-    // 10.2 Defect Summary
     const defectSummary = await db.collection('qc_log').aggregate([
       { $match: { ...qcQuery, status: 'NG' } },
       { $group: { _id: "$defect", count: { $sum: 1 } } },
       { $sort: { count: -1 } }
     ]).toArray();
 
-    // 10.3 Hourly Summary
     const hourlySummary = await db.collection('qc_log').aggregate([
       { $match: qcQuery },
       { $project: { hour: { $hour: { date: "$timestamp", timezone: "Asia/Bangkok" } }, status: "$status" } },
@@ -222,17 +230,14 @@ app.get('/get-admin-dashboard', async (req, res) => {
       { $sort: { _id: 1 } }
     ]).toArray();
 
-    // 10.4 Rack Summary (แยก Part Code)
     const rackSummary = await db.collection('qc_log').aggregate([
       { $match: { ...qcQuery, status: 'OK' } }, 
-      // Group ตาม part_code ถ้ามี ถ้าไม่มีให้ใช้ model
       { $group: { 
-          _id: { $ifNull: ["$part_code", "$model"] }, 
+          _id: { model: "$model", part_code: "$part_code" }, 
           total_ok: { $sum: 1 } 
       }}, 
       { $project: {
-          part_code: "$_id", // ชื่อที่จะแสดง
-          total_ok: 1,
+          model: "$_id.model", part_code: "$_id.part_code", total_ok: 1,
           full_racks: { $floor: { $divide: ["$total_ok", 8] } },
           pending_pieces: { $mod: ["$total_ok", 8] }
       }},
@@ -244,13 +249,10 @@ app.get('/get-admin-dashboard', async (req, res) => {
       defects: defectSummary, hourly: hourlySummary, racks: rackSummary 
     });
 
-  } catch (err) {
-    console.error(err);
-    res.status(500).send({ error: 'Dashboard Error' });
-  }
+  } catch (err) { res.status(500).send({ error: 'Dashboard Error' }); }
 });
 
-// 11. ดึงรายการ Rework ค้าง
+// 11. Rework List
 app.get('/get-rework-list', async (req, res) => {
   try {
     const reworkList = await db.collection('qc_log').find({ status: 'REWORK' }).sort({ timestamp: -1 }).toArray();
@@ -258,20 +260,19 @@ app.get('/get-rework-list', async (req, res) => {
   } catch (err) { res.status(500).send({ error: 'Error' }); }
 });
 
-// 12. อัปเดต Rework
+// 12. Update Rework
 app.post('/update-rework', async (req, res) => {
   try {
     const { id, newStatus, inspector } = req.body;
-    await db.collection('qc_log').updateOne({ _id: new ObjectId(id) }, { $set: { status: newStatus, rework_checked_by: inspector, rework_checked_at: new Date() } });
+    const result = await db.collection('qc_log').updateOne({ _id: new ObjectId(id) }, { $set: { status: newStatus, rework_checked_by: inspector, rework_checked_at: new Date() } });
+    if (result.modifiedCount === 0) return res.status(404).send({ error: 'Not found' });
     res.status(200).send({ message: 'Updated' });
   } catch (err) { res.status(500).send({ error: 'Error' }); }
 });
 
-// --- สตาร์ท Server (ฟังทุก IP) ---
+// --- สตาร์ท Server ---
 async function startServer() {
   await connectToDatabase();
-  app.listen(PORT, '0.0.0.0', () => {
-      console.log(`✅ Server (Final) is running on port ${PORT}`);
-  });
+  app.listen(PORT, '0.0.0.0', () => console.log(`✅ Server (V28) running on port ${PORT}`));
 }
 startServer();
