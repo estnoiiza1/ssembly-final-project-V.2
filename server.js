@@ -58,7 +58,7 @@ async function connectToDatabase() {
 
 // (ใหม่!) Route หน้าแรก (/) -> ส่ง index.html
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+   res.sendFile(path.join(__dirname, 'Index.html'));
 });
 
 // 1. สมัครสมาชิก
@@ -276,5 +276,6 @@ async function startServer() {
   app.listen(PORT, '0.0.0.0', () => console.log(`✅ Server (V28) running on port ${PORT}`));
 }
 startServer();
+
 
 
