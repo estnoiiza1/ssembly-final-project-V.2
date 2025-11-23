@@ -12,7 +12,7 @@ require('dotenv').config();
 // --- 1. การตั้งค่า (Configuration) ---
 
 // (⚠️ อย่าลืมเช็คชื่อไฟล์ .json ของคุณให้ตรงเป๊ะๆ นะครับ!)
-const serviceAccount = require('./assembly-app-project-firebase-adminsdk-fbsvc-f975284913.json'); 
+const serviceAccount = require('./assembly-app-project-firebase-adminsdk-fbsvc-f975284913'); 
 const mongoUri = process.env.MONGO_URI;
 
 const app = express();
@@ -276,3 +276,4 @@ async function startServer() {
   app.listen(PORT, '0.0.0.0', () => console.log(`✅ Server (V28) running on port ${PORT}`));
 }
 startServer();
+
