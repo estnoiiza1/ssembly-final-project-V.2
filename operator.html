@@ -21,7 +21,6 @@
         .stat-box h3 { font-family: 'Orbitron', sans-serif; font-size: 36px; margin: 5px 0 0 0; color: #fff; }
         #ok-count { color: #2ecc71; } #ng-count { color: #e74c3c; } #rework-count { color: #f39c12; } #total-count { color: #00e5ff; }
         
-        /* (V15) ปรับกล่อง Rework ให้กดได้ */
         #box-rework-op { cursor: pointer; transition: 0.2s; border: 1px solid #f39c12; }
         #box-rework-op:hover { background: rgba(243, 156, 18, 0.1); transform: scale(1.05); box-shadow: 0 0 15px rgba(243, 156, 18, 0.5); }
 
@@ -45,7 +44,7 @@
         .reset-container { margin-top: 20px; text-align: center; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px; }
         .btn-reset-day { background: transparent; border: 1px solid #e74c3c; color: #e74c3c; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-size: 12px; transition: all 0.2s; }
         .btn-reset-day:hover { background: #e74c3c; color: white; }
-        
+
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 10; justify-content: center; align-items: center; }
         .modal-content { background: rgba(20, 30, 50, 0.95); border: 1px solid #00e5ff; padding: 30px; width: 400px; text-align: center; border-radius: 15px; }
         .modal-content h2 { font-family: 'Orbitron', sans-serif; margin-top: 0; color: #fff; }
@@ -133,8 +132,6 @@
     </div>
 
     <script>
-        // (JavaScript เหมือนเดิมทุกประการครับ ไม่ต้องแก้)
-        // ผมใส่มาให้ครบเพื่อความชัวร์
         let currentUser = null;
         let currentSide = 'L';
         let lastFullRacks = { L: 0, R: 0 };
@@ -247,7 +244,7 @@
             };
 
             try {
-                const res = await fetch('http://localhost:3000/log-qc', {
+                const res = await fetch('/log-qc', { // ใช้ Relative Path
                     method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
                 });
                 if (res.ok) {
@@ -290,7 +287,7 @@
         document.getElementById('btn-undo').addEventListener('click', async () => {
             if (!confirm('ต้องการลบข้อมูลล่าสุดใช่หรือไม่?')) return;
             try {
-                const res = await fetch('http://localhost:3000/undo-last-qc', {
+                const res = await fetch('/undo-last-qc', { // ใช้ Relative Path
                     method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: currentUser._id })
                 });
                 if (res.ok) {
@@ -305,7 +302,7 @@
         document.getElementById('btn-reset-day').addEventListener('click', async () => {
             if (!confirm('⚠️ ลบข้อมูลวันนี้ทั้งหมด?')) return;
             try {
-                const res = await fetch('http://localhost:3000/reset-today', {
+                const res = await fetch('/reset-today', { // ใช้ Relative Path
                     method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: currentUser._id })
                 });
                 if (res.ok) { alert('✅ เรียบร้อย!'); lastFullRacks = { L: 0, R: 0 }; fetchStats(); }
@@ -315,7 +312,7 @@
         async function fetchStats() {
             try {
                 const selectedModel = modelSelect.value;
-                let url = `http://localhost:3000/get-stats/${currentUser._id}`;
+                let url = `/get-stats/${currentUser._id}`; // ใช้ Relative Path
                 if(selectedModel) url += `?model=${encodeURIComponent(selectedModel)}`;
 
                 const res = await fetch(url);
@@ -333,7 +330,7 @@
         document.getElementById('btn-logout').onclick = async () => { 
             if(currentUser && currentUser._id) {
                 try {
-                    await fetch('http://localhost:3000/logout', {
+                    await fetch('/logout', { // ใช้ Relative Path
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({ userId: currentUser._id })
@@ -342,7 +339,7 @@
             }
             localStorage.removeItem('assemblyToken'); 
             localStorage.removeItem('assemblyUser');
-            window.location.href = 'index.html'; 
+            window.location.href = '/'; // กลับหน้าแรก
         };
     </script>
 </body>
