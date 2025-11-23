@@ -25,30 +25,24 @@
         .main-column, .sidebar-column { display: flex; flex-direction: column; gap: 20px; }
         
         .kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px; }
-        .kpi-box, .sidebar-box, .chart-container, .hourly-table-container, .rack-table-container { background: rgba(0, 180, 255, 0.05); border: 1px solid rgba(0, 180, 255, 0.2); border-radius: 10px; padding: 20px; text-align: center; }
+        .kpi-box, .sidebar-box, .chart-container, .hourly-table-container, .rack-table-container, .rework-table-container { background: rgba(0, 180, 255, 0.05); border: 1px solid rgba(0, 180, 255, 0.2); border-radius: 10px; padding: 20px; text-align: center; }
         .kpi-box h2 { font-family: 'Orbitron', sans-serif; font-size: 48px; margin: 10px 0 0 0; }
         #kpi-plan { color: #fff; } #kpi-ok { color: #2ecc71; } #kpi-variance { color: #fff; } #kpi-ng { color: #e74c3c; } #kpi-rework { color: #f39c12; }
         
-        /* Rework Box Clickable */
-        #box-rework { transition: transform 0.2s, box-shadow 0.2s; cursor: pointer; }
-        #box-rework:hover { transform: scale(1.05); box-shadow: 0 0 15px rgba(243, 156, 18, 0.5); }
-
         .form-group { margin-bottom: 15px; text-align: left; }
         .form-group label { display: block; color: #bbb; margin-bottom: 5px; font-size: 14px; }
         .form-group input, .form-group select { width: 100%; background-color: #0a0f1a; color: #eaeaea; border: 1px solid rgba(0,180,255,0.5); padding: 8px; box-sizing: border-box; border-radius: 5px; }
         .btn-save { width: 100%; background-color: #2ecc71; color: #fff; border: none; padding: 10px; border-radius: 5px; cursor: pointer; font-weight: bold; }
         .btn-add-user { width: 100%; background-color: #00e5ff; color: #0a0f1a; border: none; padding: 10px; border-radius: 5px; cursor: pointer; font-weight: bold; }
 
-        .hourly-table { width: 100%; border-collapse: collapse; }
-        .hourly-table th, .hourly-table td { border-bottom: 1px solid rgba(0,180,255,0.3); padding: 8px; }
-        .hourly-table th { color: #00e5ff; font-family: 'Orbitron', sans-serif; }
-        
-        .rack-table { width: 100%; border-collapse: collapse; margin-top: 10px; text-align: left; }
-        .rack-table th, .rack-table td { border-bottom: 1px solid rgba(0,180,255,0.3); padding: 12px 8px; }
-        .rack-table th { color: #f39c12; font-family: 'Orbitron', sans-serif; text-align: center; } 
-        .col-racks { color: #f39c12; font-weight: bold; font-size: 18px; font-family: 'Orbitron', sans-serif; text-align: center; }
+        .hourly-table, .rack-table, .rework-table { width: 100%; border-collapse: collapse; }
+        .hourly-table th, .hourly-table td, .rack-table th, .rack-table td, .rework-table th, .rework-table td { border-bottom: 1px solid rgba(0,180,255,0.3); padding: 8px; }
+        .hourly-table th, .rack-table th, .rework-table th { color: #00e5ff; font-family: 'Orbitron', sans-serif; }
+        .rack-table th, .rework-table th { color: #f39c12; }
+
         .rack-table td:nth-child(1) { text-align: left; }
         .rack-table td:nth-child(2), .rack-table td:nth-child(3), .rack-table td:nth-child(4) { text-align: center; } 
+        .col-racks { color: #f39c12; font-weight: bold; font-size: 18px; font-family: 'Orbitron', sans-serif; text-align: center; }
 
         .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; height: 300px; }
     </style>
@@ -100,10 +94,9 @@
                     <div class="kpi-box"><p>Variance</p><h2 id="kpi-variance">0</h2></div>
                     <div class="kpi-box"><p>NG</p><h2 id="kpi-ng">0</h2></div>
                     
-                    <div class="kpi-box" id="box-rework" onclick="window.location.href='rework_check.html'">
+                    <div class="kpi-box">
                         <p>Rework (งานซ่อม)</p>
                         <h2 id="kpi-rework">0</h2>
-                        <span style="font-size:10px; color:#888;">(คลิกตรวจสอบ)</span>
                     </div>
                 </div>
 
@@ -127,6 +120,22 @@
                     <table class="hourly-table">
                         <thead><tr><th>TIME</th><th>PLAN</th><th>ACTUAL</th><th>VARIANCE</th><th>OK</th><th>NG</th></tr></thead>
                         <tbody id="hourly-table-body"></tbody>
+                    </table>
+                </div>
+
+                <div class="rework-table-container" style="margin-top: 20px;">
+                    <h3>REWORK ITEMS (รายการงานซ่อมที่ค้างอยู่)</h3>
+                    <table class="rework-table">
+                        <thead>
+                            <tr>
+                                <th>TIME</th>
+                                <th>MODEL / PART</th>
+                                <th>DEFECT (อาการ)</th>
+                                <th>OPERATOR</th>
+                                <th>STATUS</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rework-table-body"></tbody>
                     </table>
                 </div>
             </div>
@@ -192,6 +201,7 @@
         const kpiReworkEl = document.getElementById('kpi-rework');
         const hourlyTableBody = document.getElementById('hourly-table-body');
         const rackTableBody = document.getElementById('rack-table-body');
+        const reworkTableBody = document.getElementById('rework-table-body');
         
         const startDateInput = document.getElementById('start-date');
         const endDateInput = document.getElementById('end-date');
@@ -228,7 +238,7 @@
                     endDateInput.value = todayStr;
                     document.getElementById('plan-date').value = todayStr;
                     fetchDashboardData(); 
-                    fetchActiveUsers(); // (V17) เรียกดูคนออนไลน์
+                    fetchActiveUsers();
                     setInterval(fetchActiveUsers, 10000);
                 }
             }
@@ -283,7 +293,6 @@
              fetchDashboardData(startDateInput.value, endDateInput.value, p.m, p.shift);
         });
 
-        // --- (V17) Fetch Active Users ---
         async function fetchActiveUsers() {
             try {
                 const res = await fetch('http://localhost:3000/get-active-users');
@@ -307,7 +316,6 @@
             } catch (e) { console.error(e); }
         }
 
-        // --- Fetch Data ---
         async function fetchDashboardData(startDate = null, endDate = null, model = null, shift = 'day') {
             let url = 'http://localhost:3000/get-admin-dashboard';
             const params = new URLSearchParams();
@@ -330,6 +338,7 @@
                 renderDefectChart(data.defects);
                 renderHourlyTable(data.hourly, data.kpi.plan, shift); 
                 renderRackTable(data.racks);
+                renderReworkTable(data.reworks);
 
             } catch (err) { console.error(err); }
         }
@@ -356,6 +365,28 @@
                     <td>${r.pending_pieces}</td>
                 </tr>`;
                 rackTableBody.innerHTML += row;
+            });
+        }
+
+        function renderReworkTable(reworks) {
+            reworkTableBody.innerHTML = '';
+            if (!reworks || reworks.length === 0) {
+                reworkTableBody.innerHTML = '<tr><td colspan="5">ไม่มีงานซ่อมค้าง</td></tr>';
+                return;
+            }
+            reworks.forEach(item => {
+                const timeStr = new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                let displayName = item.part_code || item.model;
+                if (partNames[displayName]) displayName = partNames[displayName].substring(0, 20) + "...";
+
+                const row = `<tr>
+                    <td>${timeStr}</td>
+                    <td>${displayName}</td>
+                    <td style="color:#f39c12">${item.defect || '-'}</td>
+                    <td>${item.username}</td>
+                    <td style="color:#f39c12; font-weight:bold;">WAITING</td>
+                </tr>`;
+                reworkTableBody.innerHTML += row;
             });
         }
 
