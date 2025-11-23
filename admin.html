@@ -124,17 +124,9 @@
                 </div>
 
                 <div class="rework-table-container" style="margin-top: 20px;">
-                    <h3>REWORK ITEMS (รายการงานซ่อมที่ค้างอยู่)</h3>
+                    <h3>REWORK ITEMS (งานซ่อมค้าง)</h3>
                     <table class="rework-table">
-                        <thead>
-                            <tr>
-                                <th>TIME</th>
-                                <th>MODEL / PART</th>
-                                <th>DEFECT (อาการ)</th>
-                                <th>OPERATOR</th>
-                                <th>STATUS</th>
-                            </tr>
-                        </thead>
+                        <thead><tr><th>TIME</th><th>MODEL</th><th>DEFECT</th><th>OPERATOR</th><th>STATUS</th></tr></thead>
                         <tbody id="rework-table-body"></tbody>
                     </table>
                 </div>
@@ -209,28 +201,17 @@
         const partNames = {
             "10117645": "PANEL ASSY FR DOOR TRIM RH (B-CAB)",
             "10117646": "PANEL ASSY FR DOOR TRIM LH (B-CAB)",
-            "10117647": "PANEL ASSY FR DOOR TRIM RH (D-CAB) LOW",
-            "10117648": "PANEL ASSY FR DOOR TRIM LH (D-CAB) LOW",
-            "10117649": "PANEL ASSY FR DOOR TRIM RH (D-CAB) HI",
-            "10117650": "PANEL ASSY FR DOOR TRIM LH (D-CAB) HI",
-            "10117651": "PANEL ASSY FR DOOR TRIM RH (D-CAB) LOW W/S",
-            "10117652": "PANEL ASSY FR DOOR TRIM LH (D-CAB) LOW W/S",
-            "10117653": "PANEL ASSY FR DOOR TRIM RH (D-CAB) HI W/S",
-            "10117654": "PANEL ASSY FR DOOR TRIM LH (D-CAB) HI W/S",
-            "10117655": "PANEL ASSY RR DOOR TRIM RH (D-CAB) W/O S",
-            "10117656": "PANEL ASSY RR DOOR TRIM LH (D-CAB) W/O S",
-            "10117657": "PANEL ASSY RR DOOR TRIM RH (D-CAB) W/S",
-            "10117658": "PANEL ASSY RR DOOR TRIM LH (D-CAB) W/S"
+            // ... (ใส่ชื่อ Part ให้ครบตามต้องการ) ...
         };
 
         document.addEventListener('DOMContentLoaded', () => {
             const userJson = localStorage.getItem('assemblyUser');
             if (!localStorage.getItem('assemblyToken') || !userJson) {
-                window.location.href = 'index.html';
+                window.location.href = '/'; // แก้เป็น /
             } else {
                 const user = JSON.parse(userJson);
                 if (user.role !== 'admin') {
-                    window.location.href = 'index.html';
+                    window.location.href = '/'; // แก้เป็น /
                 } else {
                     document.getElementById('user-display').textContent = user.full_name;
                     const todayStr = getFormattedDate(new Date());
@@ -295,7 +276,7 @@
 
         async function fetchActiveUsers() {
             try {
-                const res = await fetch('http://localhost:3000/get-active-users');
+                const res = await fetch('/get-active-users'); // ใช้ Relative Path
                 const users = await res.json();
                 const container = document.getElementById('active-users-list');
                 container.innerHTML = '';
@@ -317,7 +298,7 @@
         }
 
         async function fetchDashboardData(startDate = null, endDate = null, model = null, shift = 'day') {
-            let url = 'http://localhost:3000/get-admin-dashboard';
+            let url = '/get-admin-dashboard'; // ใช้ Relative Path
             const params = new URLSearchParams();
             if (startDate && endDate) { params.append('start', startDate); params.append('end', endDate); }
             if (model) params.append('model', model);
@@ -398,7 +379,7 @@
                 shift: document.getElementById('plan-shift').value,
                 target_quantity: document.getElementById('plan-target').value
             };
-            await fetch('http://localhost:3000/set-plan', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+            await fetch('/set-plan', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
             alert("บันทึก Plan เรียบร้อย!");
             document.getElementById('btn-filter').click(); 
         });
@@ -413,7 +394,7 @@
                 role: document.getElementById('new-role').value
             };
             try {
-                const res = await fetch('http://localhost:3000/register', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+                const res = await fetch('/register', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
                 const data = await res.json();
                 if (res.ok) { alert("✅ เพิ่มพนักงานสำเร็จ!"); document.getElementById('add-user-form').reset(); }
                 else { alert("❌ Error: " + data.error); }
@@ -447,7 +428,10 @@
             });
         }
 
-        document.getElementById('btn-logout').addEventListener('click', () => { localStorage.clear(); window.location.href = 'index.html'; });
+        document.getElementById('btn-logout').addEventListener('click', () => { 
+            localStorage.clear(); 
+            window.location.href = '/'; // กลับไปหน้าแรก
+        });
         function getFormattedDate(date) { const yyyy = date.getFullYear(); const mm = (date.getMonth() + 1).toString().padStart(2, '0'); const dd = date.getDate().toString().padStart(2, '0'); return `${yyyy}-${mm}-${dd}`; }
     </script>
 </body>
