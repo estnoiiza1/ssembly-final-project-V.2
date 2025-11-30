@@ -25,10 +25,16 @@
         .main-column, .sidebar-column { display: flex; flex-direction: column; gap: 20px; }
         
         .kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px; }
-        .kpi-box, .sidebar-box, .chart-container, .hourly-table-container, .rack-table-container, .rework-table-container { background: rgba(0, 180, 255, 0.05); border: 1px solid rgba(0, 180, 255, 0.2); border-radius: 10px; padding: 20px; text-align: center; }
+        .kpi-box, .sidebar-box, .chart-container, .hourly-table-container, .rack-table-container, .rework-table-container { 
+            background: rgba(0, 180, 255, 0.05); border: 1px solid rgba(0, 180, 255, 0.2); border-radius: 10px; padding: 20px; text-align: center; 
+        }
         .kpi-box h2 { font-family: 'Orbitron', sans-serif; font-size: 48px; margin: 10px 0 0 0; }
         #kpi-plan { color: #fff; } #kpi-ok { color: #2ecc71; } #kpi-variance { color: #fff; } #kpi-ng { color: #e74c3c; } #kpi-rework { color: #f39c12; }
         
+        /* Rework Box Clickable */
+        #box-rework { transition: transform 0.2s, box-shadow 0.2s; cursor: pointer; }
+        #box-rework:hover { transform: scale(1.05); box-shadow: 0 0 15px rgba(243, 156, 18, 0.5); }
+
         .form-group { margin-bottom: 15px; text-align: left; }
         .form-group label { display: block; color: #bbb; margin-bottom: 5px; font-size: 14px; }
         .form-group input, .form-group select { width: 100%; background-color: #0a0f1a; color: #eaeaea; border: 1px solid rgba(0,180,255,0.5); padding: 8px; box-sizing: border-box; border-radius: 5px; }
@@ -43,7 +49,7 @@
 
         .hourly-table td, .rack-table td, .rework-table td { text-align: center; }
         .rack-table td:nth-child(1), .rework-table td:nth-child(2) { text-align: left; }
-        .col-racks { color: #f39c12; font-weight: bold; font-size: 18px; font-family: 'Orbitron', sans-serif; }
+        .col-racks { color: #f39c12; font-weight: bold; font-size: 18px; font-family: 'Orbitron', sans-serif; text-align: center; }
 
         .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; height: 300px; }
     </style>
@@ -81,6 +87,7 @@
             <label>-</label>
             <input type="date" id="end-date">
             <button id="btn-filter">Go</button>
+            
             <div class="divider"></div>
             <button class="btn-preset" id="btn-week">สัปดาห์นี้</button>
             <button class="btn-preset" id="btn-month">เดือนนี้</button>
@@ -93,9 +100,11 @@
                     <div class="kpi-box"><p>OK</p><h2 id="kpi-ok">0</h2></div>
                     <div class="kpi-box"><p>Variance</p><h2 id="kpi-variance">0</h2></div>
                     <div class="kpi-box"><p>NG</p><h2 id="kpi-ng">0</h2></div>
-                    <div class="kpi-box">
+                    
+                    <div class="kpi-box" id="box-rework" onclick="window.location.href='rework_check.html'">
                         <p>Rework (งานซ่อม)</p>
                         <h2 id="kpi-rework">0</h2>
+                        <span style="font-size:10px; color:#888;">(คลิกเพื่อตรวจสอบ)</span>
                     </div>
                 </div>
 
