@@ -21,7 +21,7 @@
         .stat-box h3 { font-family: 'Orbitron', sans-serif; font-size: 36px; margin: 5px 0 0 0; color: #fff; }
         #ok-count { color: #2ecc71; } #ng-count { color: #e74c3c; } #rework-count { color: #f39c12; } #total-count { color: #00e5ff; }
         
-        /* กล่อง Rework กดได้ */
+        /* กล่อง Rework คลิกได้ */
         #box-rework-op { cursor: pointer; transition: 0.2s; border: 1px solid #f39c12; }
         #box-rework-op:hover { background: rgba(243, 156, 18, 0.1); transform: scale(1.05); box-shadow: 0 0 15px rgba(243, 156, 18, 0.5); }
 
@@ -52,6 +52,12 @@
         .reason-btn { display: block; width: 100%; padding: 15px; margin-bottom: 10px; background: rgba(255,255,255,0.1); color: white; border: 1px solid #666; cursor: pointer; font-size: 16px; border-radius: 5px; transition: 0.2s; }
         .reason-btn:hover { background: rgba(255,255,255,0.2); }
         .btn-cancel { background: #555 !important; margin-top: 15px;}
+        
+        /* (V18) ช่องกรอก Serial Number */
+        .qty-input-group { margin-bottom: 20px; text-align: left; }
+        .qty-input-group label { color: #00e5ff; font-size: 16px; margin-bottom: 5px; display: block; font-weight: bold; }
+        .qty-input-group input { width: 100%; padding: 12px; background: #0a0f1a; border: 1px solid #00e5ff; color: #fff; border-radius: 5px; box-sizing: border-box; font-size: 20px; text-align: center; font-family: 'Orbitron', sans-serif; }
+        .qty-input-group input:focus { border-color: #2ecc71; outline: none; box-shadow: 0 0 10px rgba(46, 204, 113, 0.5); }
     </style>
 </head>
 <body>
@@ -79,7 +85,6 @@
             <div class="stat-box"><p>Total</p><h3 id="total-count">0</h3></div>
             <div class="stat-box"><p>OK</p><h3 id="ok-count">0</h3></div>
             <div class="stat-box"><p>NG</p><h3 id="ng-count">0</h3></div>
-            
             <div class="stat-box" id="box-rework-op" onclick="window.location.href='rework_check.html'">
                 <p style="color:#f39c12;">Rework (แตะเพื่อแก้)</p>
                 <h3 id="rework-count">0</h3>
@@ -116,6 +121,12 @@
     <div class="modal-overlay" id="reason-modal">
         <div class="modal-content">
             <h2 id="modal-title">ระบุสาเหตุ</h2>
+            
+            <div class="qty-input-group">
+                <label>ระบุเลขชิ้นงาน (Serial / Tracking No.):</label>
+                <input type="text" id="input-serial" placeholder="ตัวอย่าง: A-102" autocomplete="off">
+            </div>
+
             <div id="ng-options" style="display:none;">
                 <button class="reason-btn" data-reason="Scratch">รอยขีดข่วน</button>
                 <button class="reason-btn" data-reason="Short Shot">ฉีดไม่เต็ม</button>
@@ -168,6 +179,7 @@
         const modalTitle = document.getElementById('modal-title');
         const ngOptions = document.getElementById('ng-options');
         const reworkOptions = document.getElementById('rework-options');
+        const serialInput = document.getElementById('input-serial'); // (V18)
 
         document.addEventListener('DOMContentLoaded', () => {
             const userJson = localStorage.getItem('assemblyUser');
@@ -177,15 +189,13 @@
                 currentUser = JSON.parse(userJson);
                 document.getElementById('user-display').textContent = currentUser.full_name;
 
-                // --- (V29 เพิ่มตรงนี้) ปุ่มกลับ Admin ---
+                // ปุ่มกลับ Admin
                 if (currentUser.role === 'admin' || currentUser.role === 'leader') {
                     const backBtn = document.createElement('button');
                     backBtn.innerHTML = "❮ กลับ Admin";
                     backBtn.style.cssText = "background: #3498db; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-weight: bold; margin-right: 10px;";
                     backBtn.onclick = () => window.location.href = 'admin.html';
-                    
-                    const headerControls = document.querySelector('.header-controls');
-                    headerControls.insertBefore(backBtn, document.getElementById('btn-logout'));
+                    document.querySelector('.header-controls').insertBefore(backBtn, document.getElementById('btn-logout'));
                 }
 
                 const savedSide = localStorage.getItem('currentSide');
@@ -248,12 +258,16 @@
                 if (!partCode) { alert("กรุณาเลือก Part Code!"); return; }
             }
 
+            // (V18) รับ Serial Number
+            const serialNumber = document.getElementById('input-serial').value || '-';
+
             const body = {
                 model, part_code: partCode,
                 status, defect,
                 userId: currentUser._id,
                 username: currentUser.username,
-                side: status === 'OK' ? currentSide : null
+                side: status === 'OK' ? currentSide : null,
+                serial_number: serialNumber // ส่งไป Server
             };
 
             try {
@@ -267,21 +281,27 @@
             } catch (err) { alert("Error Saving"); }
         }
 
+        // เปิด Modal NG
         document.getElementById('btn-ng').onclick = () => {
             currentActionType = 'NG';
             modalTitle.innerText = "ระบุของเสีย (NG)";
             modalTitle.style.color = "#e74c3c"; 
             ngOptions.style.display = 'block';
             reworkOptions.style.display = 'none';
+            serialInput.value = ''; // เคลียร์
+            serialInput.focus();
             modal.style.display = 'flex';
         };
 
+        // เปิด Modal Rework
         document.getElementById('btn-rework').onclick = () => {
             currentActionType = 'REWORK';
             modalTitle.innerText = "ระบุสาเหตุซ่อม (REWORK)";
             modalTitle.style.color = "#f39c12"; 
             ngOptions.style.display = 'none';
             reworkOptions.style.display = 'block';
+            serialInput.value = ''; // เคลียร์
+            serialInput.focus();
             modal.style.display = 'flex';
         };
         
@@ -295,7 +315,12 @@
         });
 
         document.getElementById('btn-cancel-modal').onclick = () => modal.style.display = 'none';
-        document.getElementById('btn-ok').onclick = () => logQcEntry('OK');
+        
+        // OK ไม่ต้องมี Serial (หรือถ้าอยากใส่ก็เปิด Modal ได้)
+        document.getElementById('btn-ok').onclick = () => {
+            document.getElementById('input-serial').value = '-'; // ไม่มี Serial
+            logQcEntry('OK');
+        };
 
         document.getElementById('btn-undo').addEventListener('click', async () => {
             if (!confirm('ต้องการลบข้อมูลล่าสุดใช่หรือไม่?')) return;
