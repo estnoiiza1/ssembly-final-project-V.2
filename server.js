@@ -1,5 +1,5 @@
 // ==========================================
-//  SERVER.JS (V31 - Debug & Final Fix)
+//  ASSEMBLY APP BACKEND (V33 - User Management)
 // ==========================================
 
 const express = require('express');
@@ -7,20 +7,14 @@ const cors = require('cors');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb'); 
 const admin = require('firebase-admin'); 
 const path = require('path'); 
-const fs = require('fs'); // (เพิ่ม) เพื่อเช็คไฟล์
+const fs = require('fs');
 require('dotenv').config(); 
 
-// (⚠️ เช็คชื่อไฟล์ .json ให้ตรง!)
 const serviceAccount = require('./assembly-app-project-firebase-adminsdk-fbsvc-f975284913.json'); 
 const mongoUri = process.env.MONGO_URI;
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-
-// --- Debug: เช็คว่ามีไฟล์อะไรบ้างใน Server ---
-console.log("📂 Current Directory:", __dirname);
-console.log("📂 Files in Root:", fs.readdirSync(__dirname));
-// -------------------------------------------
 
 admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
 const client = new MongoClient(mongoUri, { serverApi: { version: ServerApiVersion.v1, strict: true, deprecationErrors: true } });
@@ -28,8 +22,6 @@ let db;
 
 app.use(cors());
 app.use(express.json());
-
-// (สำคัญ!) บอกให้ Server ใช้ไฟล์ในโฟลเดอร์ปัจจุบันเป็นหน้าเว็บ
 app.use(express.static(path.join(__dirname, '.'))); 
 
 async function connectToDatabase() {
@@ -41,86 +33,24 @@ async function connectToDatabase() {
   } catch (err) { console.error(err); process.exit(1); }
 }
 
-// --- Routes ---
-
-// (สำคัญ!) Route หน้าแรก -> ส่ง index.html
 app.get('/', (req, res) => {
-    const indexPath = path.join(__dirname, 'Index.html');
-    if (fs.existsSync(indexPath)) {
-        res.sendFile(indexPath);
-    } else {
-        res.status(404).send("❌ Error: ไม่พบไฟล์ index.html (กรุณาเช็คตัวพิมพ์เล็ก/ใหญ่ ใน GitHub)");
-    }
+    const indexPath = path.join(__dirname, 'index.html');
+    if (fs.existsSync(indexPath)) res.sendFile(indexPath);
+    else res.status(404).send("❌ Error: ไม่พบไฟล์ index.html");
 });
 
-// ... (API อื่นๆ เหมือนเดิม - Register, Login, QC, Plan, etc.) ...
-// (ผมละไว้เพื่อความสั้น แต่คุณใช้โค้ด API เดิมจาก V30 ได้เลยครับ มันถูกต้องแล้ว)
-// ...
-// ...
-
-// (ใส่ API ทั้งหมดจาก V30 ลงตรงนี้)
-// ...
-// ...
-
-
-// --- API ทั้งหมด (คัดลอก V30 มาใส่ตรงนี้ หรือใช้ชุดเดิม) ---
-// เพื่อความสะดวก ผมสรุป API หลักๆ ให้ครับ
-
-// --- (V33 อัปเกรด!) /register (เพิ่มระบบเช็คสิทธิ์ Admin/Leader) ---
+// --- Routes เดิม ---
 app.post('/register', async (req, res) => {
   try {
-    // 1. รับข้อมูล (เพิ่ม requester_id คือไอดีของคนที่กดปุ่มเพิ่ม)
-    const { requester_id, username, password, full_name, role, department, employee_id } = req.body;
-
-    // 2. ตรวจสอบข้อมูลพื้นฐาน
-    if (!username || !password || !full_name || !requester_id) {
-      return res.status(400).send({ error: 'ข้อมูลไม่ครบ (Missing requester_id)' });
-    }
-
-    // 3. "สืบประวัติคนสั่ง" (Check Requester Role)
-    const requester = await db.collection('users').findOne({ _id: new ObjectId(requester_id) });
-    
-    if (!requester) {
-        return res.status(403).send({ error: 'ไม่พบข้อมูลผู้ทำรายการ' });
-    }
-
-    // 4. กฏเหล็ก (Permission Logic)
-    // ถ้าคนสั่งเป็น "Leader" ... แต่พยายามสร้าง "Admin" หรือ "Leader" -> ห้าม!
-    if (requester.role === 'leader') {
-        if (role === 'admin' || role === 'leader') {
-            return res.status(403).send({ error: '⚠️ สิทธิ์ไม่ถึง! Leader สร้างได้เฉพาะ Operator เท่านั้น' });
-        }
-    }
-    // ถ้าคนสั่งเป็น "Operator" -> ห้ามสร้างใครเลย (เผื่อไว้)
-    if (requester.role === 'operator') {
-        return res.status(403).send({ error: '⚠️ Operator ไม่มีสิทธิ์เพิ่มพนักงาน' });
-    }
-
-    // 5. เช็ค Username ซ้ำ
-    const existingUser = await db.collection('users').findOne({ username: username });
-    if (existingUser) {
-      return res.status(400).send({ error: 'Username นี้มีผู้ใช้งานแล้ว!' });
-    }
-
-    // 6. สร้าง User ใหม่
-    const newUser = {
-      username, password, full_name,
-      role: role || 'operator', 
-      department: department || 'General',
-      employee_id: employee_id || '', 
-      is_active: true, is_online: false, created_at: new Date()
-    };
-
-    await db.collection('users').insertOne(newUser);
-    console.log(`✅ User Created: ${username} (${role}) by ${requester.username}`);
-    
-    res.status(201).send({ message: 'เพิ่มพนักงานใหม่เรียบร้อยแล้ว!' });
-
-  } catch (err) {
-    console.error("Register Error:", err);
-    res.status(500).send({ error: 'เกิดข้อผิดพลาดในการสร้าง User' });
-  }
+    const { username, password, full_name, role, department, employee_id } = req.body;
+    if (!username || !password || !full_name) return res.status(400).send({ error: 'ข้อมูลไม่ครบ' });
+    const existingUser = await db.collection('users').findOne({ username });
+    if (existingUser) return res.status(400).send({ error: 'Username ซ้ำ' });
+    await db.collection('users').insertOne({ username, password, full_name, role: role || 'operator', department: department || 'General', employee_id: employee_id || '', is_active: true, is_online: false, created_at: new Date() });
+    res.status(201).send({ message: 'User Created' });
+  } catch (err) { res.status(500).send({ error: 'Error' }); }
 });
+
 app.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -132,6 +62,7 @@ app.post('/login', async (req, res) => {
     res.send({ message: 'OK', token, user: { ...user, _id: user._id } });
   } catch (err) { res.status(500).send({ error: 'Error' }); }
 });
+
 app.post('/logout', async (req, res) => {
     try {
         const { userId } = req.body;
@@ -139,6 +70,39 @@ app.post('/logout', async (req, res) => {
         res.send({ message: 'Logged out' });
     } catch (err) { res.status(500).send({ error: 'Error' }); }
 });
+
+// --- (V33 ใหม่!) User Management Routes ---
+
+// 1. ดึงรายชื่อ User ทั้งหมด
+app.get('/get-all-users', async (req, res) => {
+    try {
+        const users = await db.collection('users').find({}).sort({ created_at: -1 }).toArray();
+        res.send(users);
+    } catch (err) { res.status(500).send({ error: 'Error fetching users' }); }
+});
+
+// 2. ลบ User
+app.post('/delete-user', async (req, res) => {
+    try {
+        const { userId } = req.body;
+        await db.collection('users').deleteOne({ _id: new ObjectId(userId) });
+        res.send({ message: 'User deleted' });
+    } catch (err) { res.status(500).send({ error: 'Delete Error' }); }
+});
+
+// 3. แก้ไข User
+app.post('/update-user', async (req, res) => {
+    try {
+        const { id, username, password, full_name, role, employee_id } = req.body;
+        await db.collection('users').updateOne(
+            { _id: new ObjectId(id) },
+            { $set: { username, password, full_name, role, employee_id } }
+        );
+        res.send({ message: 'User updated' });
+    } catch (err) { res.status(500).send({ error: 'Update Error' }); }
+});
+
+// --- Routes อื่นๆ (QC, Plan, Dashboard) ---
 app.post('/log-qc', async (req, res) => {
   try {
     const { model, part_code, status, defect, userId, username, side } = req.body;
@@ -146,6 +110,7 @@ app.post('/log-qc', async (req, res) => {
     res.status(201).send({ message: 'Saved' });
   } catch (err) { res.status(500).send({ error: 'Error' }); }
 });
+
 app.post('/undo-last-qc', async (req, res) => {
     try {
       const { userId } = req.body;
@@ -155,6 +120,7 @@ app.post('/undo-last-qc', async (req, res) => {
       res.status(200).send({ message: 'Deleted', deletedEntry: lastEntry[0] });
     } catch (err) { res.status(500).send({ error: 'Error' }); }
 });
+
 app.post('/reset-today', async (req, res) => {
     try {
       const { userId } = req.body;
@@ -163,6 +129,7 @@ app.post('/reset-today', async (req, res) => {
       res.status(200).send({ message: 'Reset Done' });
     } catch (err) { res.status(500).send({ error: 'Error' }); }
 });
+
 app.get('/get-stats/:userId', async (req, res) => {
   try {
     const { userId } = req.params; const { model } = req.query;
@@ -179,45 +146,17 @@ app.get('/get-stats/:userId', async (req, res) => {
     res.send({ ok, ng, rework, total: ok+ng+rework, okLeft, okRight });
   } catch (err) { res.status(500).send({ error: 'Error' }); }
 });
-// --- (V32 อัปเกรด!) /set-plan (บันทึกแผน แยกตาม Part Code) ---
+
 app.post('/set-plan', async (req, res) => {
   try {
-    // 1. รับ part_code เพิ่มเข้ามา
-    const { date_string, model, part_code, shift, target_quantity } = req.body;
-    
-    // (เช็คข้อมูล)
-    if (!date_string || !model || !shift || !target_quantity) {
-        return res.status(400).send({ error: 'ข้อมูลไม่ครบ' });
-    }
-
-    // 2. บันทึกลง MongoDB
-    // (เงื่อนไขการค้นหาต้องละเอียดขึ้น: วันที่ + กะ + รุ่น + รหัสพาร์ท)
-    // ถ้า part_code ไม่มี (เช่นรุ่นอื่น) ให้เก็บเป็น "General" หรือค่าว่าง
-    const pCode = part_code || "General";
-
+    const { date_string, model, shift, target_quantity } = req.body;
     await db.collection('production_plans').updateOne(
-      { 
-        date_string: date_string, 
-        model: model, 
-        shift: shift,
-        part_code: pCode // (สำคัญ!) แยกแถวตาม Part Code
-      }, 
-      { $set: { 
-          date_string, model, shift, 
-          part_code: pCode,
-          target_quantity: parseInt(target_quantity, 10) 
-      }},
-      { upsert: true }
+      { date_string, model, shift }, { $set: { date_string, model, shift, target_quantity: parseInt(target_quantity) } }, { upsert: true }
     );
-    
-    console.log(`✅ Plan Saved: ${date_string} | ${model} | ${pCode} | Qty: ${target_quantity}`);
     res.status(201).send({ message: 'Plan Saved' });
-
-  } catch (err) { 
-      console.error(err);
-      res.status(500).send({ error: 'Plan Error' }); 
-  }
+  } catch (err) { res.status(500).send({ error: 'Error' }); }
 });
+
 app.get('/get-admin-dashboard', async (req, res) => {
   try {
     const { start, end, model, shift } = req.query; 
@@ -227,6 +166,7 @@ app.get('/get-admin-dashboard', async (req, res) => {
     let endDateObj = end ? new Date(end) : new Date();
     if (start && end) { planDateStr = start; } else { startDateObj = new Date(); endDateObj = new Date(); }
     if (selectedShift === 'day') { startDateObj.setHours(8, 0, 0, 0); endDateObj.setHours(20, 0, 0, 0); } else { startDateObj.setHours(20, 0, 0, 0); endDateObj.setDate(endDateObj.getDate() + 1); endDateObj.setHours(8, 0, 0, 0); }
+    
     let qcQuery = { timestamp: { $gte: startDateObj, $lt: endDateObj } };
     let planQuery = { date_string: planDateStr, shift: selectedShift }; 
     if (model && model !== "") { qcQuery.model = model; planQuery.model = model; }
@@ -245,6 +185,7 @@ app.get('/get-admin-dashboard', async (req, res) => {
     res.send({ kpi: { plan: totalPlan, ok: totalOK, ng: totalNG, rework: totalRework, variance: totalOK - totalPlan }, defects: defectSummary, hourly: hourlySummary, racks: rackSummary, reworks: reworkItems });
   } catch (err) { res.status(500).send({ error: 'Dashboard Error' }); }
 });
+
 app.get('/get-rework-list', async (req, res) => {
   try {
     const reworkList = await db.collection('qc_log').find({ status: 'REWORK' }).sort({ timestamp: -1 }).toArray();
@@ -269,25 +210,15 @@ app.get('/get-rework-history', async (req, res) => {
     res.status(200).send(history);
   } catch (err) { res.status(500).send({ error: 'History Error' }); }
 });
-// 4. ดึงรายชื่อคน Online (V32 Update)
 app.get('/get-active-users', async (req, res) => {
     try {
-        // เพิ่ม _id: 1 เพื่อให้หน้าบ้านเอาไปดึง Stats ได้
-        const users = await db.collection('users')
-            .find({ is_online: true })
-            .project({ _id: 1, full_name: 1, last_login: 1 }) 
-            .toArray();
+        const users = await db.collection('users').find({ is_online: true }).project({ _id: 1, full_name: 1, last_login: 1 }).toArray();
         res.send(users);
     } catch (err) { res.status(500).send({ error: 'Error' }); }
 });
 
 async function startServer() {
   await connectToDatabase();
-  app.listen(PORT, '0.0.0.0', () => console.log(`✅ Server (V31 Final) running on port ${PORT}`));
+  app.listen(PORT, '0.0.0.0', () => console.log(`✅ Server (V33) running on port ${PORT}`));
 }
 startServer();
-
-
-
-
-
