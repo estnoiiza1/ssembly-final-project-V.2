@@ -169,6 +169,52 @@
             </div>
             
             <div class="sidebar-column">
+                <div class="sidebar-column">
+                
+                <div class="sidebar-box" style="text-align: center; background: rgba(155, 89, 182, 0.1); border: 1px solid #9b59b6;">
+                    <h3 style="color: #9b59b6; border-bottom: 1px solid rgba(155, 89, 182, 0.3);">MODE SWITCH</h3>
+                    <button onclick="window.location.href='operator.html'" style="width: 100%; background-color: #9b59b6; color: white; border: none; padding: 12px; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 14px;">
+                        🛠️ ไปหน้าตรวจงาน (Operator View)
+                    </button>
+                </div>
+
+                <div class="sidebar-box">
+                    <h3>🟢 TEAM ONLINE</h3>
+                    ```
+
+---
+
+### 🛠️ (แถม!) ขั้นตอนที่ 3: แก้ไฟล์ `operator.html` (เพิ่มปุ่มย้อนกลับ)
+
+เพื่อให้ Leader กดกลับมาหน้า Admin ได้ง่ายๆ (โดยไม่ต้อง Logout) เราจะเพิ่มปุ่ม **"กลับหน้า Admin"** ที่จะโชว์เฉพาะตอน Leader/Admin เข้ามาครับ
+
+1.  เปิด **`operator.html`**
+2.  ค้นหา `document.addEventListener('DOMContentLoaded'...)`
+3.  เพิ่มโค้ดนี้เข้าไปในส่วน `else` (หลังจากเช็ค Token ผ่าน):
+
+```javascript
+            } else {
+                currentUser = JSON.parse(userJson);
+                document.getElementById('user-display').textContent = currentUser.full_name;
+                
+                // --- (V29 แถม!) ถ้าไม่ใช่ Operator ให้โชว์ปุ่มกลับ Admin ---
+                if (currentUser.role === 'admin' || currentUser.role === 'leader') {
+                    // สร้างปุ่ม
+                    const backBtn = document.createElement('button');
+                    backBtn.innerHTML = "❮ กลับ Admin";
+                    backBtn.style.cssText = "background: #3498db; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-weight: bold; margin-right: 10px;";
+                    backBtn.onclick = () => window.location.href = 'admin.html';
+                    
+                    // แทรกปุ่มไว้ข้างหน้าปุ่ม Logout
+                    const headerControls = document.querySelector('.header-controls');
+                    headerControls.insertBefore(backBtn, document.getElementById('btn-logout'));
+                }
+
+                // ... (โค้ดเดิม fetchStats) ...
+                const savedSide = localStorage.getItem('currentSide');
+                if(savedSide) currentSide = savedSide;
+                fetchStats();
+            }
                 <div class="sidebar-box">
                     <h3>🟢 TEAM ONLINE</h3>
                     <div id="active-users-list" style="text-align: left; max-height: 150px; overflow-y: auto;">
@@ -377,4 +423,5 @@
     </script>
 </body>
 </html>
+
 
