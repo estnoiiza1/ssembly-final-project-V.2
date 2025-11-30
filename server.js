@@ -46,8 +46,8 @@ async function connectToDatabase() {
 // (สำคัญ!) Route หน้าแรก -> ส่ง index.html
 app.get('/', (req, res) => {
     const indexPath = path.join(__dirname, 'Index.html');
-    if (fs.existsSync(IndexPath)) {
-        res.sendFile(IndexPath);
+    if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
     } else {
         res.status(404).send("❌ Error: ไม่พบไฟล์ index.html (กรุณาเช็คตัวพิมพ์เล็ก/ใหญ่ ใน GitHub)");
     }
@@ -198,4 +198,5 @@ async function startServer() {
   app.listen(PORT, '0.0.0.0', () => console.log(`✅ Server (V31 Final) running on port ${PORT}`));
 }
 startServer();
+
 
