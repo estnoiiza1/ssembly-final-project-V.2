@@ -21,6 +21,7 @@
         .stat-box h3 { font-family: 'Orbitron', sans-serif; font-size: 36px; margin: 5px 0 0 0; color: #fff; }
         #ok-count { color: #2ecc71; } #ng-count { color: #e74c3c; } #rework-count { color: #f39c12; } #total-count { color: #00e5ff; }
         
+        /* (V16) ทำให้กล่อง Rework กดได้ (ไปหน้าตรวจสอบ) */
         #box-rework-op { cursor: pointer; transition: 0.2s; border: 1px solid #f39c12; }
         #box-rework-op:hover { background: rgba(243, 156, 18, 0.1); transform: scale(1.05); box-shadow: 0 0 15px rgba(243, 156, 18, 0.5); }
 
@@ -171,7 +172,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             const userJson = localStorage.getItem('assemblyUser');
             if (!localStorage.getItem('assemblyToken') || !userJson) {
-                window.location.href = 'index.html';
+                window.location.href = '/';
             } else {
                 currentUser = JSON.parse(userJson);
                 document.getElementById('user-display').textContent = currentUser.full_name;
@@ -244,7 +245,7 @@
             };
 
             try {
-                const res = await fetch('/log-qc', { // ใช้ Relative Path
+                const res = await fetch('/log-qc', {
                     method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
                 });
                 if (res.ok) {
@@ -287,7 +288,7 @@
         document.getElementById('btn-undo').addEventListener('click', async () => {
             if (!confirm('ต้องการลบข้อมูลล่าสุดใช่หรือไม่?')) return;
             try {
-                const res = await fetch('/undo-last-qc', { // ใช้ Relative Path
+                const res = await fetch('/undo-last-qc', {
                     method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: currentUser._id })
                 });
                 if (res.ok) {
@@ -302,7 +303,7 @@
         document.getElementById('btn-reset-day').addEventListener('click', async () => {
             if (!confirm('⚠️ ลบข้อมูลวันนี้ทั้งหมด?')) return;
             try {
-                const res = await fetch('/reset-today', { // ใช้ Relative Path
+                const res = await fetch('/reset-today', {
                     method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: currentUser._id })
                 });
                 if (res.ok) { alert('✅ เรียบร้อย!'); lastFullRacks = { L: 0, R: 0 }; fetchStats(); }
@@ -312,7 +313,7 @@
         async function fetchStats() {
             try {
                 const selectedModel = modelSelect.value;
-                let url = `/get-stats/${currentUser._id}`; // ใช้ Relative Path
+                let url = `/get-stats/${currentUser._id}`;
                 if(selectedModel) url += `?model=${encodeURIComponent(selectedModel)}`;
 
                 const res = await fetch(url);
@@ -327,10 +328,11 @@
         
         modelSelect.addEventListener('change', () => { fetchStats(); });
 
+        // (V16 แก้ไข) Logout กลับไปหน้าแรก (/)
         document.getElementById('btn-logout').onclick = async () => { 
             if(currentUser && currentUser._id) {
                 try {
-                    await fetch('/logout', { // ใช้ Relative Path
+                    await fetch('/logout', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({ userId: currentUser._id })
@@ -339,7 +341,7 @@
             }
             localStorage.removeItem('assemblyToken'); 
             localStorage.removeItem('assemblyUser');
-            window.location.href = '/'; // กลับหน้าแรก
+            window.location.href = '/'; 
         };
     </script>
 </body>
