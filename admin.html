@@ -281,9 +281,16 @@
                 const user = JSON.parse(userJson);
                 currentUser = user;
 
-                // (V26) อนุญาต Admin และ Leader
-                if (user.role !== 'admin' && user.role !== 'leader') {
-                    alert("⚠️ เฉพาะ Admin และ Leader เท่านั้น!"); window.location.href = '/';
+               // --- (แก้ส่วนนี้) เช็ค Role เพื่อเลือกหน้าที่จะไป ---
+                let targetPage = '';
+                
+                // ถ้าเป็น Admin หรือ Leader -> ไปหน้า Dashboard
+                if (data.user.role === 'admin' || data.user.role === 'leader') {
+                    targetPage = 'admin.html';
+                } 
+                // ถ้าเป็น Operator -> ไปหน้าทำงาน
+                else {
+                    targetPage = 'operator.html';
                 } else {
                     document.getElementById('user-display').textContent = `${user.full_name} (${user.role})`;
                     
@@ -370,3 +377,4 @@
     </script>
 </body>
 </html>
+
