@@ -8,6 +8,7 @@
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;700&display=swap');
         body { font-family: 'Roboto', sans-serif; background-color: #0a0f1a; color: #eaeaea; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
         .main-container { width: 100%; max-width: 900px; background: rgba(10, 20, 40, 0.75); backdrop-filter: blur(10px); border-radius: 15px; border: 1px solid rgba(0, 180, 255, 0.3); padding: 25px; }
+        
         .header-bar { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0, 180, 255, 0.3); padding-bottom: 15px; margin-bottom: 20px; flex-direction: column; gap: 10px; }
         .user-info strong { font-family: 'Orbitron', sans-serif; color: #00e5ff; }
         .header-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; }
@@ -175,6 +176,18 @@
             } else {
                 currentUser = JSON.parse(userJson);
                 document.getElementById('user-display').textContent = currentUser.full_name;
+
+                // --- (V29 เพิ่มตรงนี้) ปุ่มกลับ Admin ---
+                if (currentUser.role === 'admin' || currentUser.role === 'leader') {
+                    const backBtn = document.createElement('button');
+                    backBtn.innerHTML = "❮ กลับ Admin";
+                    backBtn.style.cssText = "background: #3498db; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-weight: bold; margin-right: 10px;";
+                    backBtn.onclick = () => window.location.href = 'admin.html';
+                    
+                    const headerControls = document.querySelector('.header-controls');
+                    headerControls.insertBefore(backBtn, document.getElementById('btn-logout'));
+                }
+
                 const savedSide = localStorage.getItem('currentSide');
                 if(savedSide) currentSide = savedSide;
                 fetchStats();
