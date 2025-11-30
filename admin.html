@@ -31,9 +31,8 @@
         .kpi-box h2 { font-family: 'Orbitron', sans-serif; font-size: 48px; margin: 10px 0 0 0; }
         #kpi-plan { color: #fff; } #kpi-ok { color: #2ecc71; } #kpi-variance { color: #fff; } #kpi-ng { color: #e74c3c; } #kpi-rework { color: #f39c12; }
         
-        /* Rework Box Clickable */
-        #box-rework { transition: transform 0.2s, box-shadow 0.2s; cursor: pointer; }
-        #box-rework:hover { transform: scale(1.05); box-shadow: 0 0 15px rgba(243, 156, 18, 0.5); }
+        /* Rework Box */
+        #box-rework { transition: transform 0.2s, box-shadow 0.2s; }
 
         .form-group { margin-bottom: 15px; text-align: left; }
         .form-group label { display: block; color: #bbb; margin-bottom: 5px; font-size: 14px; }
@@ -96,6 +95,7 @@
             <label>-</label>
             <input type="date" id="end-date">
             <button id="btn-filter">Go</button>
+            
             <div class="divider"></div>
             <button class="btn-preset" id="btn-week">สัปดาห์นี้</button>
             <button class="btn-preset" id="btn-month">เดือนนี้</button>
@@ -153,7 +153,7 @@
                     </table>
                 </div>
 
-                 <div class="rework-table-container" style="margin-top: 20px; background: rgba(0, 180, 255, 0.05);">
+                <div class="rework-table-container" style="margin-top: 20px; background: rgba(0, 180, 255, 0.05);">
                     <h3 style="color: #bbb;">REWORK HISTORY LOG (ประวัติการซ่อม)</h3>
                     <div style="max-height: 300px; overflow-y: auto;">
                         <table class="rework-table">
@@ -177,10 +177,7 @@
                 </div>
 
                 <div class="sidebar-box">
-                    <h3>USER MANAGEMENT</h3>
-                    <button class="btn-manage-users" onclick="openUserManagement()">👥 Manage Users (แก้ไข/ลบ)</button>
-                    <hr style="border-color:rgba(255,255,255,0.1); margin: 15px 0;">
-                    <h4>ADD NEW USER</h4>
+                    <h3>ADD NEW USER</h3>
                     <form id="add-user-form">
                         <div class="form-group"><label>ID:</label><input type="text" id="new-empid" required></div>
                         <div class="form-group"><label>User:</label><input type="text" id="new-username" required></div>
@@ -193,7 +190,7 @@
                                 <option value="operator" selected>Operator (พนักงาน)</option>
                             </select>
                         </div>
-                        <button type="submit" class="btn-add-user">Add User</button>
+                        <button type="submit" class="btn-add-user">Add</button>
                     </form>
                 </div>
 
@@ -213,12 +210,14 @@
                                 <option value="320D">REAR COM LAMP 320D</option>
                             </select>
                         </div>
+                        
                         <div class="form-group" id="plan-part-group" style="display:none;">
                             <label>Part Code (Optional):</label>
                             <select id="plan-part-code">
                                 <option value="">-- ทั้งหมด --</option>
                             </select>
                         </div>
+
                         <div class="form-group"><label>Target:</label><input type="number" id="plan-target" required></div>
                         <button type="submit" class="btn-save">Save</button>
                     </form>
@@ -281,15 +280,17 @@
             else {
                 const user = JSON.parse(userJson);
                 currentUser = user;
+
+                // (V26) อนุญาต Admin และ Leader
                 if (user.role !== 'admin' && user.role !== 'leader') {
                     alert("⚠️ เฉพาะ Admin และ Leader เท่านั้น!"); window.location.href = '/';
                 } else {
                     document.getElementById('user-display').textContent = `${user.full_name} (${user.role})`;
                     
-                    // (V25) Logic ซ่อนตัวเลือกใน Dropdown
+                    // (V26) Logic จัดการสิทธิ์ Dropdown
+                    const roleSelect = document.getElementById('new-role');
                     if (user.role === 'leader') {
-                        const roleSelect = document.getElementById('new-role');
-                        // ซ่อน Admin และ Leader ใน Dropdown สร้างใหม่
+                        // Leader เห็นแค่ Operator
                         Array.from(roleSelect.options).forEach(opt => {
                             if(opt.value === 'admin' || opt.value === 'leader') opt.style.display = 'none';
                         });
@@ -316,15 +317,24 @@
             const res = await fetch('/get-all-users'); const users = await res.json();
             const tbody = document.getElementById('users-table-body'); tbody.innerHTML = '';
             users.forEach(u => {
-                // (V25) Leader ห้ามลบ Admin
                 let actions = `<button class="btn-edit" onclick="editUser('${u._id}','${u.full_name}','${u.role}')">Edit</button> <button class="btn-del" onclick="deleteUser('${u._id}','${u.username}')">Del</button>`;
+                // Leader ห้ามยุ่งกับ Admin/Leader
                 if (currentUser.role === 'leader' && (u.role === 'admin' || u.role === 'leader')) actions = '<span style="color:#888;">-</span>';
-
                 tbody.innerHTML += `<tr><td>${u.employee_id||'-'}</td><td>${u.full_name}</td><td>${u.username}</td><td>${u.role}</td><td>${actions}</td></tr>`;
             });
         }
         async function deleteUser(id, name) { if(confirm(`ยืนยันลบ ${name}?`)) { await fetch('/delete-user', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:id})}); openUserManagement(); } }
-        function editUser(id, name, role) { document.getElementById('edit-user-form-container').style.display='block'; document.getElementById('edit-id').value=id; document.getElementById('edit-fullname').value=name; document.getElementById('edit-role').value=role; document.getElementById('edit-password').value=''; }
+        function editUser(id, name, role) { 
+            document.getElementById('edit-user-form-container').style.display='block'; document.getElementById('edit-id').value=id; document.getElementById('edit-fullname').value=name; 
+            const roleSelect = document.getElementById('edit-role'); roleSelect.value=role; document.getElementById('edit-password').value=''; 
+            // ซ่อน Role Admin/Leader ถ้าเป็น Leader
+            if(currentUser.role === 'leader'){
+                 Array.from(roleSelect.options).forEach(opt => {
+                     if(opt.value === 'admin' || opt.value === 'leader') opt.style.display = 'none';
+                 });
+                 roleSelect.value = 'operator';
+            }
+        }
         function cancelEditUser() { document.getElementById('edit-user-form-container').style.display='none'; }
         async function submitEditUser() { const b={id:document.getElementById('edit-id').value,full_name:document.getElementById('edit-fullname').value,role:document.getElementById('edit-role').value,password:document.getElementById('edit-password').value||undefined}; await fetch('/update-user',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}); alert("แก้ไขเรียบร้อย!"); cancelEditUser(); openUserManagement(); }
 
@@ -345,7 +355,7 @@
 
         document.getElementById('plan-form').addEventListener('submit',async(e)=>{e.preventDefault(); await fetch('/set-plan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date_string:document.getElementById('plan-date').value,model:document.getElementById('plan-model').value,part_code:document.getElementById('plan-part-code').value,shift:document.getElementById('plan-shift').value,target_quantity:document.getElementById('plan-target').value})}); alert('Saved'); document.getElementById('btn-filter').click();});
         
-        // (V23) Add User - ส่ง Requester ID
+        // (V26) Add User - ส่ง Requester ID
         document.getElementById('add-user-form').addEventListener('submit',async(e)=>{e.preventDefault(); const b={requester_id:currentUser._id,employee_id:document.getElementById('new-empid').value,username:document.getElementById('new-username').value,password:document.getElementById('new-password').value,full_name:document.getElementById('new-fullname').value,role:document.getElementById('new-role').value}; try{const r=await fetch('/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}); const d=await r.json(); if(r.ok){alert("✅ "+d.message);document.getElementById('add-user-form').reset();}else{alert("❌ "+d.error);}}catch(e){alert("❌ Connect Error");}});
         
         function renderKpiChart(d){ const c=document.getElementById('kpiChart').getContext('2d'); if(kpiChartInstance)kpiChartInstance.destroy(); kpiChartInstance=new Chart(c,{type:'doughnut',data:{labels:['OK','NG','Rework'],datasets:[{data:[d.ok,d.ng,d.rework],backgroundColor:['#2ecc71','#e74c3c','#f39c12'],borderWidth:0}]},options:{plugins:{legend:{display:false}}}}); }
