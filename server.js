@@ -1,5 +1,5 @@
 // ==========================================
-//  ASSEMBLY APP BACKEND (V33 - User Management)
+//  ASSEMBLY APP BACKEND (V34 - Final & Timezone Fix)
 // ==========================================
 
 const express = require('express');
@@ -34,19 +34,63 @@ async function connectToDatabase() {
 }
 
 app.get('/', (req, res) => {
-    const indexPath = path.join(__dirname, 'Index.html');
+    const indexPath = path.join(__dirname, 'index.html');
     if (fs.existsSync(indexPath)) res.sendFile(indexPath);
     else res.status(404).send("❌ Error: ไม่พบไฟล์ index.html");
 });
 
-// --- Routes เดิม ---
+// --- User Management Routes (V33) ---
+app.get('/get-all-users', async (req, res) => {
+    try {
+        const users = await db.collection('users').find({}).sort({ created_at: -1 }).toArray();
+        res.send(users);
+    } catch (err) { res.status(500).send({ error: 'Error fetching users' }); }
+});
+
+app.post('/delete-user', async (req, res) => {
+    try {
+        const { userId } = req.body;
+        await db.collection('users').deleteOne({ _id: new ObjectId(userId) });
+        res.send({ message: 'User deleted' });
+    } catch (err) { res.status(500).send({ error: 'Delete Error' }); }
+});
+
+app.post('/update-user', async (req, res) => {
+    try {
+        const { id, username, password, full_name, role, employee_id } = req.body;
+        const updateData = { username, full_name, role, employee_id };
+        if(password) updateData.password = password; // อัปเดตพาสเวิร์ดเฉพาะถ้ามีการส่งมา
+        
+        await db.collection('users').updateOne(
+            { _id: new ObjectId(id) },
+            { $set: updateData }
+        );
+        res.send({ message: 'User updated' });
+    } catch (err) { res.status(500).send({ error: 'Update Error' }); }
+});
+
+// --- Register (V33 Logic) ---
 app.post('/register', async (req, res) => {
   try {
-    const { username, password, full_name, role, department, employee_id } = req.body;
+    const { requester_id, username, password, full_name, role, department, employee_id } = req.body;
+    
+    // (Optional) เช็คสิทธิ์คนขอ (ถ้ามี requester_id)
+    if(requester_id) {
+        const requester = await db.collection('users').findOne({ _id: new ObjectId(requester_id) });
+        if (requester && requester.role === 'leader' && (role === 'admin' || role === 'leader')) {
+            return res.status(403).send({ error: 'Leader สร้างได้เฉพาะ Operator' });
+        }
+    }
+
     if (!username || !password || !full_name) return res.status(400).send({ error: 'ข้อมูลไม่ครบ' });
     const existingUser = await db.collection('users').findOne({ username });
     if (existingUser) return res.status(400).send({ error: 'Username ซ้ำ' });
-    await db.collection('users').insertOne({ username, password, full_name, role: role || 'operator', department: department || 'General', employee_id: employee_id || '', is_active: true, is_online: false, created_at: new Date() });
+    
+    await db.collection('users').insertOne({ 
+        username, password, full_name, role: role || 'operator', 
+        department: department || 'General', employee_id: employee_id || '', 
+        is_active: true, is_online: false, created_at: new Date() 
+    });
     res.status(201).send({ message: 'User Created' });
   } catch (err) { res.status(500).send({ error: 'Error' }); }
 });
@@ -71,38 +115,6 @@ app.post('/logout', async (req, res) => {
     } catch (err) { res.status(500).send({ error: 'Error' }); }
 });
 
-// --- (V33 ใหม่!) User Management Routes ---
-
-// 1. ดึงรายชื่อ User ทั้งหมด
-app.get('/get-all-users', async (req, res) => {
-    try {
-        const users = await db.collection('users').find({}).sort({ created_at: -1 }).toArray();
-        res.send(users);
-    } catch (err) { res.status(500).send({ error: 'Error fetching users' }); }
-});
-
-// 2. ลบ User
-app.post('/delete-user', async (req, res) => {
-    try {
-        const { userId } = req.body;
-        await db.collection('users').deleteOne({ _id: new ObjectId(userId) });
-        res.send({ message: 'User deleted' });
-    } catch (err) { res.status(500).send({ error: 'Delete Error' }); }
-});
-
-// 3. แก้ไข User
-app.post('/update-user', async (req, res) => {
-    try {
-        const { id, username, password, full_name, role, employee_id } = req.body;
-        await db.collection('users').updateOne(
-            { _id: new ObjectId(id) },
-            { $set: { username, password, full_name, role, employee_id } }
-        );
-        res.send({ message: 'User updated' });
-    } catch (err) { res.status(500).send({ error: 'Update Error' }); }
-});
-
-// --- Routes อื่นๆ (QC, Plan, Dashboard) ---
 app.post('/log-qc', async (req, res) => {
   try {
     const { model, part_code, status, defect, userId, username, side } = req.body;
@@ -157,18 +169,37 @@ app.post('/set-plan', async (req, res) => {
   } catch (err) { res.status(500).send({ error: 'Error' }); }
 });
 
+// --- (V34) Dashboard พร้อม Timezone Fix ---
 app.get('/get-admin-dashboard', async (req, res) => {
   try {
     const { start, end, model, shift } = req.query; 
     let planDateStr = new Date().toISOString().split('T')[0]; 
     let selectedShift = shift || 'day';
-    let startDateObj = start ? new Date(start) : new Date();
-    let endDateObj = end ? new Date(end) : new Date();
-    if (start && end) { planDateStr = start; } else { startDateObj = new Date(); endDateObj = new Date(); }
-    if (selectedShift === 'day') { startDateObj.setHours(8, 0, 0, 0); endDateObj.setHours(20, 0, 0, 0); } else { startDateObj.setHours(20, 0, 0, 0); endDateObj.setDate(endDateObj.getDate() + 1); endDateObj.setHours(8, 0, 0, 0); }
+    let startDateObj, endDateObj;
     
+    if (start && end) { planDateStr = start; } 
+
+    // --- (V31 Logic) Timezone Fix ---
+    const getThaiDate = (dateStr, hour) => {
+        const d = new Date(dateStr);
+        d.setUTCHours(hour - 7, 0, 0, 0); // ลบ 7 ชม. เพื่อให้ UTC ตรงกับเวลาไทย
+        return d;
+    };
+
+    if (selectedShift === 'day') {
+        startDateObj = getThaiDate(planDateStr, 8);  
+        endDateObj = getThaiDate(planDateStr, 20);   
+    } else {
+        startDateObj = getThaiDate(planDateStr, 20); 
+        const nextDay = new Date(startDateObj);
+        nextDay.setDate(nextDay.getDate() + 1);
+        endDateObj = getThaiDate(nextDay.toISOString().split('T')[0], 8); 
+    }
+    // --------------------------------
+
     let qcQuery = { timestamp: { $gte: startDateObj, $lt: endDateObj } };
     let planQuery = { date_string: planDateStr, shift: selectedShift }; 
+
     if (model && model !== "") { qcQuery.model = model; planQuery.model = model; }
 
     const totalOK = await db.collection('qc_log').countDocuments({ ...qcQuery, status: 'OK' });
@@ -219,7 +250,6 @@ app.get('/get-active-users', async (req, res) => {
 
 async function startServer() {
   await connectToDatabase();
-  app.listen(PORT, '0.0.0.0', () => console.log(`✅ Server (V33) running on port ${PORT}`));
+  app.listen(PORT, '0.0.0.0', () => console.log(`✅ Server (V34) running on port ${PORT}`));
 }
 startServer();
-
