@@ -215,19 +215,24 @@ app.get('/get-rework-history', async (req, res) => {
     res.status(200).send(history);
   } catch (err) { res.status(500).send({ error: 'History Error' }); }
 });
+// 4. ดึงรายชื่อคน Online (V32 Update)
 app.get('/get-active-users', async (req, res) => {
     try {
-        const users = await db.collection('users').find({ is_online: true }).project({ full_name: 1, last_login: 1 }).toArray();
+        // เพิ่ม _id: 1 เพื่อให้หน้าบ้านเอาไปดึง Stats ได้
+        const users = await db.collection('users')
+            .find({ is_online: true })
+            .project({ _id: 1, full_name: 1, last_login: 1 }) 
+            .toArray();
         res.send(users);
     } catch (err) { res.status(500).send({ error: 'Error' }); }
 });
-
 
 async function startServer() {
   await connectToDatabase();
   app.listen(PORT, '0.0.0.0', () => console.log(`✅ Server (V31 Final) running on port ${PORT}`));
 }
 startServer();
+
 
 
 
