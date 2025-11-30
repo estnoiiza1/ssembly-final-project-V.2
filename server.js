@@ -125,14 +125,44 @@ app.get('/get-stats/:userId', async (req, res) => {
     res.send({ ok, ng, rework, total: ok+ng+rework, okLeft, okRight });
   } catch (err) { res.status(500).send({ error: 'Error' }); }
 });
+// --- (V32 อัปเกรด!) /set-plan (บันทึกแผน แยกตาม Part Code) ---
 app.post('/set-plan', async (req, res) => {
   try {
-    const { date_string, model, shift, target_quantity } = req.body;
+    // 1. รับ part_code เพิ่มเข้ามา
+    const { date_string, model, part_code, shift, target_quantity } = req.body;
+    
+    // (เช็คข้อมูล)
+    if (!date_string || !model || !shift || !target_quantity) {
+        return res.status(400).send({ error: 'ข้อมูลไม่ครบ' });
+    }
+
+    // 2. บันทึกลง MongoDB
+    // (เงื่อนไขการค้นหาต้องละเอียดขึ้น: วันที่ + กะ + รุ่น + รหัสพาร์ท)
+    // ถ้า part_code ไม่มี (เช่นรุ่นอื่น) ให้เก็บเป็น "General" หรือค่าว่าง
+    const pCode = part_code || "General";
+
     await db.collection('production_plans').updateOne(
-      { date_string, model, shift }, { $set: { date_string, model, shift, target_quantity: parseInt(target_quantity) } }, { upsert: true }
+      { 
+        date_string: date_string, 
+        model: model, 
+        shift: shift,
+        part_code: pCode // (สำคัญ!) แยกแถวตาม Part Code
+      }, 
+      { $set: { 
+          date_string, model, shift, 
+          part_code: pCode,
+          target_quantity: parseInt(target_quantity, 10) 
+      }},
+      { upsert: true }
     );
+    
+    console.log(`✅ Plan Saved: ${date_string} | ${model} | ${pCode} | Qty: ${target_quantity}`);
     res.status(201).send({ message: 'Plan Saved' });
-  } catch (err) { res.status(500).send({ error: 'Error' }); }
+
+  } catch (err) { 
+      console.error(err);
+      res.status(500).send({ error: 'Plan Error' }); 
+  }
 });
 app.get('/get-admin-dashboard', async (req, res) => {
   try {
@@ -198,5 +228,6 @@ async function startServer() {
   app.listen(PORT, '0.0.0.0', () => console.log(`✅ Server (V31 Final) running on port ${PORT}`));
 }
 startServer();
+
 
 
