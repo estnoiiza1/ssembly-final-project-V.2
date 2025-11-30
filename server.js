@@ -1,5 +1,5 @@
 // ==========================================
-//  ASSEMBLY APP BACKEND (V34 - Final & Timezone Fix)
+//  ASSEMBLY APP BACKEND (V35 - Final + Serial Number)
 // ==========================================
 
 const express = require('express');
@@ -34,12 +34,12 @@ async function connectToDatabase() {
 }
 
 app.get('/', (req, res) => {
-    const indexPath = path.join(__dirname, 'Index.html');
+    const indexPath = path.join(__dirname, 'index.html');
     if (fs.existsSync(indexPath)) res.sendFile(indexPath);
     else res.status(404).send("❌ Error: ไม่พบไฟล์ index.html");
 });
 
-// --- User Management Routes (V33) ---
+// --- User Management Routes ---
 app.get('/get-all-users', async (req, res) => {
     try {
         const users = await db.collection('users').find({}).sort({ created_at: -1 }).toArray();
@@ -59,38 +59,26 @@ app.post('/update-user', async (req, res) => {
     try {
         const { id, username, password, full_name, role, employee_id } = req.body;
         const updateData = { username, full_name, role, employee_id };
-        if(password) updateData.password = password; // อัปเดตพาสเวิร์ดเฉพาะถ้ามีการส่งมา
-        
-        await db.collection('users').updateOne(
-            { _id: new ObjectId(id) },
-            { $set: updateData }
-        );
+        if(password) updateData.password = password; 
+        await db.collection('users').updateOne({ _id: new ObjectId(id) }, { $set: updateData });
         res.send({ message: 'User updated' });
     } catch (err) { res.status(500).send({ error: 'Update Error' }); }
 });
 
-// --- Register (V33 Logic) ---
+// --- Register ---
 app.post('/register', async (req, res) => {
   try {
     const { requester_id, username, password, full_name, role, department, employee_id } = req.body;
-    
-    // (Optional) เช็คสิทธิ์คนขอ (ถ้ามี requester_id)
     if(requester_id) {
         const requester = await db.collection('users').findOne({ _id: new ObjectId(requester_id) });
         if (requester && requester.role === 'leader' && (role === 'admin' || role === 'leader')) {
             return res.status(403).send({ error: 'Leader สร้างได้เฉพาะ Operator' });
         }
     }
-
     if (!username || !password || !full_name) return res.status(400).send({ error: 'ข้อมูลไม่ครบ' });
     const existingUser = await db.collection('users').findOne({ username });
     if (existingUser) return res.status(400).send({ error: 'Username ซ้ำ' });
-    
-    await db.collection('users').insertOne({ 
-        username, password, full_name, role: role || 'operator', 
-        department: department || 'General', employee_id: employee_id || '', 
-        is_active: true, is_online: false, created_at: new Date() 
-    });
+    await db.collection('users').insertOne({ username, password, full_name, role: role || 'operator', department: department || 'General', employee_id: employee_id || '', is_active: true, is_online: false, created_at: new Date() });
     res.status(201).send({ message: 'User Created' });
   } catch (err) { res.status(500).send({ error: 'Error' }); }
 });
@@ -115,12 +103,30 @@ app.post('/logout', async (req, res) => {
     } catch (err) { res.status(500).send({ error: 'Error' }); }
 });
 
+// --- (V35 อัปเกรด!) log-qc รองรับ Serial Number ---
 app.post('/log-qc', async (req, res) => {
   try {
-    const { model, part_code, status, defect, userId, username, side } = req.body;
-    await db.collection('qc_log').insertOne({ model, part_code: part_code || null, status, defect: defect || null, side: side || null, timestamp: new Date(), user_id: new ObjectId(userId), username });
+    const { model, part_code, status, defect, userId, username, side, serial_number } = req.body;
+    
+    const newLogEntry = {
+      model, 
+      part_code: part_code || null, 
+      serial_number: serial_number || '-', // (สำคัญ!) บันทึกเลขชิ้นงาน
+      status, 
+      defect: defect || null,
+      side: side || null, 
+      timestamp: new Date(), 
+      user_id: new ObjectId(userId), 
+      username
+    };
+
+    await db.collection('qc_log').insertOne(newLogEntry);
+    console.log(`✅ QC: ${username} -> ${status} [${part_code || model}] [SN: ${serial_number}]`);
     res.status(201).send({ message: 'Saved' });
-  } catch (err) { res.status(500).send({ error: 'Error' }); }
+  } catch (err) { 
+      console.error(err);
+      res.status(500).send({ error: 'Error' }); 
+  }
 });
 
 app.post('/undo-last-qc', async (req, res) => {
@@ -161,31 +167,32 @@ app.get('/get-stats/:userId', async (req, res) => {
 
 app.post('/set-plan', async (req, res) => {
   try {
-    const { date_string, model, shift, target_quantity } = req.body;
+    const { date_string, model, part_code, shift, target_quantity } = req.body;
+    const pCode = part_code || "General";
     await db.collection('production_plans').updateOne(
-      { date_string, model, shift }, { $set: { date_string, model, shift, target_quantity: parseInt(target_quantity) } }, { upsert: true }
+      { date_string, model, shift, part_code: pCode }, 
+      { $set: { date_string, model, shift, part_code: pCode, target_quantity: parseInt(target_quantity) } }, 
+      { upsert: true }
     );
     res.status(201).send({ message: 'Plan Saved' });
   } catch (err) { res.status(500).send({ error: 'Error' }); }
 });
 
-// --- (V34) Dashboard พร้อม Timezone Fix ---
+// --- Dashboard ---
 app.get('/get-admin-dashboard', async (req, res) => {
   try {
     const { start, end, model, shift } = req.query; 
     let planDateStr = new Date().toISOString().split('T')[0]; 
     let selectedShift = shift || 'day';
     let startDateObj, endDateObj;
-    
     if (start && end) { planDateStr = start; } 
 
-    // --- (V31 Logic) Timezone Fix ---
+    // Timezone Fix (UTC+7)
     const getThaiDate = (dateStr, hour) => {
         const d = new Date(dateStr);
-        d.setUTCHours(hour - 7, 0, 0, 0); // ลบ 7 ชม. เพื่อให้ UTC ตรงกับเวลาไทย
+        d.setUTCHours(hour - 7, 0, 0, 0);
         return d;
     };
-
     if (selectedShift === 'day') {
         startDateObj = getThaiDate(planDateStr, 8);  
         endDateObj = getThaiDate(planDateStr, 20);   
@@ -195,11 +202,9 @@ app.get('/get-admin-dashboard', async (req, res) => {
         nextDay.setDate(nextDay.getDate() + 1);
         endDateObj = getThaiDate(nextDay.toISOString().split('T')[0], 8); 
     }
-    // --------------------------------
-
+    
     let qcQuery = { timestamp: { $gte: startDateObj, $lt: endDateObj } };
     let planQuery = { date_string: planDateStr, shift: selectedShift }; 
-
     if (model && model !== "") { qcQuery.model = model; planQuery.model = model; }
 
     const totalOK = await db.collection('qc_log').countDocuments({ ...qcQuery, status: 'OK' });
@@ -223,6 +228,7 @@ app.get('/get-rework-list', async (req, res) => {
     res.status(200).send(reworkList);
   } catch (err) { res.status(500).send({ error: 'Error' }); }
 });
+
 app.post('/update-rework', async (req, res) => {
   try {
     const { id, newStatus, inspector } = req.body;
@@ -230,6 +236,7 @@ app.post('/update-rework', async (req, res) => {
     res.status(200).send({ message: 'Updated' });
   } catch (err) { res.status(500).send({ error: 'Error' }); }
 });
+
 app.get('/get-rework-history', async (req, res) => {
   try {
     const { start, end } = req.query;
@@ -241,6 +248,7 @@ app.get('/get-rework-history', async (req, res) => {
     res.status(200).send(history);
   } catch (err) { res.status(500).send({ error: 'History Error' }); }
 });
+
 app.get('/get-active-users', async (req, res) => {
     try {
         const users = await db.collection('users').find({ is_online: true }).project({ _id: 1, full_name: 1, last_login: 1 }).toArray();
@@ -250,7 +258,6 @@ app.get('/get-active-users', async (req, res) => {
 
 async function startServer() {
   await connectToDatabase();
-  app.listen(PORT, '0.0.0.0', () => console.log(`✅ Server (V34) running on port ${PORT}`));
+  app.listen(PORT, '0.0.0.0', () => console.log(`✅ Server (V35 Final) running on port ${PORT}`));
 }
 startServer();
-
