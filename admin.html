@@ -31,6 +31,8 @@
         .kpi-box h2 { font-family: 'Orbitron', sans-serif; font-size: 48px; margin: 10px 0 0 0; }
         #kpi-plan { color: #fff; } #kpi-ok { color: #2ecc71; } #kpi-variance { color: #fff; } #kpi-ng { color: #e74c3c; } #kpi-rework { color: #f39c12; }
         
+        #box-rework { transition: transform 0.2s, box-shadow 0.2s; }
+
         .form-group { margin-bottom: 15px; text-align: left; }
         .form-group label { display: block; color: #bbb; margin-bottom: 5px; font-size: 14px; }
         .form-group input, .form-group select { width: 100%; background-color: #0a0f1a; color: #eaeaea; border: 1px solid rgba(0,180,255,0.5); padding: 8px; box-sizing: border-box; border-radius: 5px; }
@@ -91,7 +93,6 @@
             <label>-</label>
             <input type="date" id="end-date">
             <button id="btn-filter">Go</button>
-            
             <div class="divider"></div>
             <button class="btn-preset" id="btn-week">สัปดาห์นี้</button>
             <button class="btn-preset" id="btn-month">เดือนนี้</button>
@@ -138,7 +139,7 @@
                     <table class="rework-table">
                         <thead>
                             <tr>
-                                <th>TIME</th><th>MODEL / PART</th><th>DEFECT</th><th>OPERATOR</th><th>STATUS</th>
+                                <th>TIME</th><th>MODEL / PART</th><th>DEFECT (อาการ)</th><th>OPERATOR</th><th>STATUS</th>
                             </tr>
                         </thead>
                         <tbody id="rework-table-body"></tbody>
@@ -279,9 +280,8 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             const userJson = localStorage.getItem('assemblyUser');
-            if (!localStorage.getItem('assemblyToken') || !userJson) {
-                window.location.href = '/';
-            } else {
+            if (!localStorage.getItem('assemblyToken') || !userJson) { window.location.href = '/'; } 
+            else {
                 const user = JSON.parse(userJson);
                 currentUser = user;
                 if (user.role !== 'admin' && user.role !== 'leader') {
@@ -289,7 +289,6 @@
                 } else {
                     document.getElementById('user-display').textContent = `${user.full_name} (${user.role})`;
                     
-                    // (V26) Logic ซ่อน Role สำหรับ Leader
                     const roleSelect = document.getElementById('new-role');
                     if (user.role === 'leader') {
                         Array.from(roleSelect.options).forEach(opt => {
@@ -298,41 +297,8 @@
                         roleSelect.value = 'operator';
                     }
 
-                    // ============================================================
-                    // 🕒 (SMART SHIFT & DATE LOGIC)
-                    // ============================================================
-                    const now = new Date();
-                    const hour = now.getHours();
-                    let productionDate = new Date(now);
-                    let currentShift = 'day';
-
-                    // กฏ: 08:00-19:59=Day, 20:00-23:59=Night, 00:00-07:59=Night(Yesterday)
-                    if (hour >= 8 && hour < 20) {
-                        currentShift = 'day';
-                    } else {
-                        currentShift = 'night';
-                        if (hour < 8) {
-                            productionDate.setDate(productionDate.getDate() - 1); // ถอยหลัง 1 วัน
-                        }
-                    }
-
-                    const dateStr = getFormattedDate(productionDate);
-                    
-                    // ตั้งค่า Input
-                    startDateInput.value = dateStr;
-                    endDateInput.value = dateStr;
-                    document.getElementById('plan-date').value = dateStr;
-                    
-                    // ตั้งค่า Dropdown
-                    document.getElementById('shift-select').value = currentShift;
-                    document.getElementById('plan-shift').value = currentShift;
-
-                    // ดึงข้อมูลทันที
-                    fetchDashboardData(dateStr, dateStr, null, currentShift);
-                    // ============================================================
-                    
-                    fetchActiveUsers();
-                    setInterval(fetchActiveUsers, 10000);
+                    const t = getFormattedDate(new Date()); startDateInput.value = t; endDateInput.value = t; document.getElementById('plan-date').value = t;
+                    fetchDashboardData(); fetchActiveUsers(); setInterval(fetchActiveUsers, 10000);
                 }
             }
         });
@@ -379,7 +345,10 @@
             kpiPlanEl.textContent=d.kpi.plan; kpiOkEl.textContent=d.kpi.ok; kpiNgEl.textContent=d.kpi.ng; kpiReworkEl.textContent=d.kpi.rework; kpiVarianceEl.textContent=d.kpi.ok-d.kpi.plan; kpiVarianceEl.style.color=(d.kpi.ok-d.kpi.plan)<0?'#e74c3c':'#2ecc71';
             renderKpiChart(d.kpi); renderDefectChart(d.defects); renderHourlyTable(d.hourly,d.kpi.plan,sh); renderRackTable(d.racks); renderReworkTable(d.reworks); fetchReworkHistory(s,e);
         }
-        async function fetchReworkHistory(s,e){ let u='/get-rework-history'; if(s&&e)u+=`?start=${s}&end=${e}`; const res=await fetch(u); const d=await res.json(); const b=document.getElementById('history-table-body'); b.innerHTML=''; if(d.length===0){b.innerHTML='<tr><td colspan="6">ไม่มีประวัติ</td></tr>';return;} d.forEach(i=>{ b.innerHTML+=`<tr><td>${new Date(i.timestamp).toLocaleTimeString('th-TH')}</td><td>${i.part_code||i.model}</td><td style="color:#e74c3c">${i.defect||'-'}</td><td>${i.username}</td><td>${i.status==='REWORK'?'WAITING':'FIXED'}</td><td>${i.rework_checked_by||'-'}</td></tr>`; }); }
+        async function fetchReworkHistory(s,e){ let u='/get-rework-history'; if(s&&e)u+=`?start=${s}&end=${e}`; const res=await fetch(u); const d=await res.json(); const b=document.getElementById('history-table-body'); b.innerHTML=''; if(d.length===0){b.innerHTML='<tr><td colspan="6">ไม่มีประวัติ</td></tr>';return;} d.forEach(i=>{ 
+            let statusBadge = i.status === 'REWORK' ? '<span style="color:#f39c12; font-weight:bold;">WAITING</span>' : '<span style="color:#2ecc71; font-weight:bold;">Successful</span>';
+            b.innerHTML+=`<tr><td>${new Date(i.timestamp).toLocaleTimeString('th-TH')}</td><td>${i.part_code||i.model}</td><td style="color:#e74c3c">${i.defect||'-'}</td><td>${i.username}</td><td>${statusBadge}</td><td>${i.rework_checked_by||'-'}</td></tr>`; 
+        }); }
 
         function renderRackTable(r){rackTableBody.innerHTML='';if(!r||r.length===0){rackTableBody.innerHTML='<tr><td colspan="4">ไม่มีข้อมูล</td></tr>';return;}r.forEach(i=>{let n=i.part_code||i.model||"Unknown";if(partNames[n])n=`<div style="font-weight:bold;color:#fff;">${n}</div><div style="font-size:12px;color:#888;">${partNames[n]}</div>`;else if(i.model&&i.model!==n)n+=` (${i.model})`;rackTableBody.innerHTML+=`<tr><td>${n}</td><td>${i.total_ok}</td><td class="col-racks">${i.full_racks}</td><td>${i.pending_pieces}</td></tr>`;});}
         function renderReworkTable(r){reworkTableBody.innerHTML='';if(!r||r.length===0){reworkTableBody.innerHTML='<tr><td colspan="5">ไม่มีงานซ่อมค้าง</td></tr>';return;}r.forEach(i=>{let n=i.part_code||i.model;if(partNames[n])n=partNames[n].substring(0,20)+"...";reworkTableBody.innerHTML+=`<tr><td>${new Date(i.timestamp).toLocaleTimeString('th-TH')}</td><td>${n}</td><td style="color:#f39c12">${i.defect}</td><td>${i.username}</td><td>WAITING</td></tr>`;});}
@@ -387,13 +356,12 @@
 
         document.getElementById('plan-form').addEventListener('submit',async(e)=>{e.preventDefault(); await fetch('/set-plan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date_string:document.getElementById('plan-date').value,model:document.getElementById('plan-model').value,part_code:document.getElementById('plan-part-code').value,shift:document.getElementById('plan-shift').value,target_quantity:document.getElementById('plan-target').value})}); alert('Saved'); document.getElementById('btn-filter').click();});
         
-        // (V26) Add User with ID
+        // Add User with ID
         document.getElementById('add-user-form').addEventListener('submit',async(e)=>{e.preventDefault(); const b={requester_id:currentUser._id,employee_id:document.getElementById('new-empid').value,username:document.getElementById('new-username').value,password:document.getElementById('new-password').value,full_name:document.getElementById('new-fullname').value,role:document.getElementById('new-role').value}; try{const r=await fetch('/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}); const d=await r.json(); if(r.ok){alert("✅ "+d.message);document.getElementById('add-user-form').reset();}else{alert("❌ "+d.error);}}catch(e){alert("❌ Connect Error");}});
         
         function renderKpiChart(d){ const c=document.getElementById('kpiChart').getContext('2d'); if(kpiChartInstance)kpiChartInstance.destroy(); kpiChartInstance=new Chart(c,{type:'doughnut',data:{labels:['OK','NG','Rework'],datasets:[{data:[d.ok,d.ng,d.rework],backgroundColor:['#2ecc71','#e74c3c','#f39c12'],borderWidth:0}]},options:{plugins:{legend:{display:false}}}}); }
         function renderDefectChart(d){ const c=document.getElementById('defectChart').getContext('2d'); if(defectChartInstance)defectChartInstance.destroy(); defectChartInstance=new Chart(c,{type:'bar',data:{labels:d.map(i=>i._id||'Other'),datasets:[{label:'NG',data:d.map(i=>i.count),backgroundColor:'#e74c3c'}]},options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#fff'}},y:{ticks:{color:'#fff'}}}}}); }
         
-        // (แก้ไข) Logout -> ไปหน้าแรก /
         document.getElementById('btn-logout').addEventListener('click',()=>{localStorage.clear();window.location.href='/';});
         
         const planModelSelect=document.getElementById('plan-model');const planPartSelect=document.getElementById('plan-part-code');const planPartGroup=document.getElementById('plan-part-group');
