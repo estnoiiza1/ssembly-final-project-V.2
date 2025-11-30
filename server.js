@@ -66,7 +66,61 @@ app.get('/', (req, res) => {
 // --- API ทั้งหมด (คัดลอก V30 มาใส่ตรงนี้ หรือใช้ชุดเดิม) ---
 // เพื่อความสะดวก ผมสรุป API หลักๆ ให้ครับ
 
-app.post('/register', async (req, res) => { /* ...โค้ดเดิม... */ });
+// --- (V33 อัปเกรด!) /register (เพิ่มระบบเช็คสิทธิ์ Admin/Leader) ---
+app.post('/register', async (req, res) => {
+  try {
+    // 1. รับข้อมูล (เพิ่ม requester_id คือไอดีของคนที่กดปุ่มเพิ่ม)
+    const { requester_id, username, password, full_name, role, department, employee_id } = req.body;
+
+    // 2. ตรวจสอบข้อมูลพื้นฐาน
+    if (!username || !password || !full_name || !requester_id) {
+      return res.status(400).send({ error: 'ข้อมูลไม่ครบ (Missing requester_id)' });
+    }
+
+    // 3. "สืบประวัติคนสั่ง" (Check Requester Role)
+    const requester = await db.collection('users').findOne({ _id: new ObjectId(requester_id) });
+    
+    if (!requester) {
+        return res.status(403).send({ error: 'ไม่พบข้อมูลผู้ทำรายการ' });
+    }
+
+    // 4. กฏเหล็ก (Permission Logic)
+    // ถ้าคนสั่งเป็น "Leader" ... แต่พยายามสร้าง "Admin" หรือ "Leader" -> ห้าม!
+    if (requester.role === 'leader') {
+        if (role === 'admin' || role === 'leader') {
+            return res.status(403).send({ error: '⚠️ สิทธิ์ไม่ถึง! Leader สร้างได้เฉพาะ Operator เท่านั้น' });
+        }
+    }
+    // ถ้าคนสั่งเป็น "Operator" -> ห้ามสร้างใครเลย (เผื่อไว้)
+    if (requester.role === 'operator') {
+        return res.status(403).send({ error: '⚠️ Operator ไม่มีสิทธิ์เพิ่มพนักงาน' });
+    }
+
+    // 5. เช็ค Username ซ้ำ
+    const existingUser = await db.collection('users').findOne({ username: username });
+    if (existingUser) {
+      return res.status(400).send({ error: 'Username นี้มีผู้ใช้งานแล้ว!' });
+    }
+
+    // 6. สร้าง User ใหม่
+    const newUser = {
+      username, password, full_name,
+      role: role || 'operator', 
+      department: department || 'General',
+      employee_id: employee_id || '', 
+      is_active: true, is_online: false, created_at: new Date()
+    };
+
+    await db.collection('users').insertOne(newUser);
+    console.log(`✅ User Created: ${username} (${role}) by ${requester.username}`);
+    
+    res.status(201).send({ message: 'เพิ่มพนักงานใหม่เรียบร้อยแล้ว!' });
+
+  } catch (err) {
+    console.error("Register Error:", err);
+    res.status(500).send({ error: 'เกิดข้อผิดพลาดในการสร้าง User' });
+  }
+});
 app.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -232,6 +286,7 @@ async function startServer() {
   app.listen(PORT, '0.0.0.0', () => console.log(`✅ Server (V31 Final) running on port ${PORT}`));
 }
 startServer();
+
 
 
 
