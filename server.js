@@ -34,7 +34,7 @@ async function connectToDatabase() {
 }
 
 app.get('/', (req, res) => {
-    const indexPath = path.join(__dirname, 'index.html');
+    const indexPath = path.join(__dirname, 'Index.html');
     if (fs.existsSync(indexPath)) res.sendFile(indexPath);
     else res.status(404).send("❌ Error: ไม่พบไฟล์ index.html");
 });
@@ -274,3 +274,4 @@ async function startServer() {
   app.listen(PORT, '0.0.0.0', () => console.log(`✅ Server (V35 Final) running on port ${PORT}`));
 }
 startServer();
+
