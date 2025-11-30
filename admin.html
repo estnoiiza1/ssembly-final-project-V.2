@@ -31,7 +31,6 @@
         .kpi-box h2 { font-family: 'Orbitron', sans-serif; font-size: 48px; margin: 10px 0 0 0; }
         #kpi-plan { color: #fff; } #kpi-ok { color: #2ecc71; } #kpi-variance { color: #fff; } #kpi-ng { color: #e74c3c; } #kpi-rework { color: #f39c12; }
         
-        /* Rework Box Clickable */
         #box-rework { transition: transform 0.2s, box-shadow 0.2s; cursor: pointer; }
         #box-rework:hover { transform: scale(1.05); box-shadow: 0 0 15px rgba(243, 156, 18, 0.5); }
 
@@ -53,7 +52,7 @@
 
         .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; height: 300px; }
 
-        /* (V22) Modal Style */
+        /* Modal Style */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); z-index: 1000; justify-content: center; align-items: center; }
         .modal-content { background: rgba(20, 30, 50, 0.95); border: 1px solid #00e5ff; padding: 30px; width: 500px; text-align: center; border-radius: 15px; color: #eaeaea; }
         .modal-content h2 { font-family: 'Orbitron', sans-serif; margin-top: 0; color: #00e5ff; }
@@ -92,7 +91,6 @@
             <label>-</label>
             <input type="date" id="end-date">
             <button id="btn-filter">Go</button>
-            
             <div class="divider"></div>
             <button class="btn-preset" id="btn-week">สัปดาห์นี้</button>
             <button class="btn-preset" id="btn-month">เดือนนี้</button>
@@ -105,7 +103,6 @@
                     <div class="kpi-box"><p>OK</p><h2 id="kpi-ok">0</h2></div>
                     <div class="kpi-box"><p>Variance</p><h2 id="kpi-variance">0</h2></div>
                     <div class="kpi-box"><p>NG</p><h2 id="kpi-ng">0</h2></div>
-                    
                     <div class="kpi-box">
                         <p>Rework (งานซ่อม)</p>
                         <h2 id="kpi-rework">0</h2>
@@ -184,7 +181,7 @@
                         <div class="form-group"><label>Role:</label>
                             <select id="new-role">
                                 <option value="operator">Operator</option>
-                                <option value="admin">Admin</option>
+                                <option value="leader">Leader</option> <option value="admin">Admin</option>
                             </select>
                         </div>
                         <button type="submit" class="btn-add-user">Add</button>
@@ -242,6 +239,9 @@
     <script>
         let kpiChartInstance = null;
         let defectChartInstance = null;
+        // Global user variable
+        let currentUser = null;
+
         const kpiPlanEl = document.getElementById('kpi-plan');
         const kpiOkEl = document.getElementById('kpi-ok');
         const kpiVarianceEl = document.getElementById('kpi-variance');
@@ -258,7 +258,7 @@
         const partNames = {
             "10117645": "PANEL ASSY FR DOOR TRIM RH (B-CAB)",
             "10117646": "PANEL ASSY FR DOOR TRIM LH (B-CAB)",
-            // ... (เพิ่มรายชื่อ Part) ...
+            // ... (Your parts) ...
         };
 
         const partsDatabase = {
@@ -272,10 +272,27 @@
                 window.location.href = '/';
             } else {
                 const user = JSON.parse(userJson);
-                if (user.role !== 'admin') {
+                currentUser = user; // เก็บค่า User ไว้ใช้
+
+                // (V23) Check Hierarchy
+                if (user.role !== 'admin' && user.role !== 'leader') {
+                    alert("⚠️ เฉพาะ Admin และ Leader เท่านั้น!");
                     window.location.href = '/';
                 } else {
-                    document.getElementById('user-display').textContent = user.full_name;
+                    document.getElementById('user-display').textContent = `${user.full_name} (${user.role})`;
+                    
+                    // (V23) Hide options for Leader
+                    if (user.role === 'leader') {
+                        const roleSelect = document.getElementById('new-role');
+                        for (let i = 0; i < roleSelect.options.length; i++) {
+                            if (roleSelect.options[i].value === 'admin' || roleSelect.options[i].value === 'leader') {
+                                roleSelect.options[i].style.display = 'none'; 
+                                roleSelect.options[i].disabled = true;
+                            }
+                        }
+                        roleSelect.value = 'operator'; 
+                    }
+
                     const todayStr = getFormattedDate(new Date());
                     startDateInput.value = todayStr;
                     endDateInput.value = todayStr;
@@ -299,14 +316,12 @@
         document.getElementById('btn-filter').addEventListener('click', () => { const p = getFilterParams(); fetchDashboardData(p.s, p.e, p.m, p.shift); });
         document.getElementById('shift-select').addEventListener('change', () => { const p = getFilterParams(); fetchDashboardData(p.s, p.e, p.m, p.shift); });
         
-        // Date Nav Logic
         function shiftDate(days) { let s = new Date(startDateInput.value); let e = new Date(endDateInput.value); s.setDate(s.getDate() + days); e.setDate(e.getDate() + days); startDateInput.value = getFormattedDate(s); endDateInput.value = getFormattedDate(e); const p = getFilterParams(); fetchDashboardData(p.s, p.e, p.m, p.shift); }
         document.getElementById('prev-day').addEventListener('click', () => shiftDate(-1)); document.getElementById('next-day').addEventListener('click', () => shiftDate(1));
         document.getElementById('btn-today').addEventListener('click', () => { const t = getFormattedDate(new Date()); startDateInput.value = t; endDateInput.value = t; const p = getFilterParams(); fetchDashboardData(p.s, p.e, p.m, p.shift); });
         document.getElementById('btn-week').addEventListener('click', () => { const t = new Date(); const d = t.getDay(); const diff = t.getDate() - d + (d===0?-6:1); const m = new Date(t.setDate(diff)); startDateInput.value = getFormattedDate(m); endDateInput.value = getFormattedDate(new Date()); const p = getFilterParams(); fetchDashboardData(p.s, p.e, p.m, p.shift); });
         document.getElementById('btn-month').addEventListener('click', () => { const d = new Date(); startDateInput.value = getFormattedDate(new Date(d.getFullYear(), d.getMonth(), 1)); endDateInput.value = getFormattedDate(new Date(d.getFullYear(), d.getMonth() + 1, 0)); const p = getFilterParams(); fetchDashboardData(p.s, p.e, p.m, p.shift); });
 
-        // (V22 Updated) Active Users with Clickable Modal
         async function fetchActiveUsers() {
             try {
                 const res = await fetch('/get-active-users');
@@ -333,7 +348,6 @@
             } catch (e) { console.error(e); }
         }
 
-        // (V22) Show User Stats Modal
         async function showUserStats(userId, fullName) {
             document.getElementById('modal-user-name').innerText = fullName;
             document.getElementById('user-stats-modal').style.display = 'flex';
@@ -370,12 +384,11 @@
                 renderHourlyTable(data.hourly, data.kpi.plan, shift); 
                 renderRackTable(data.racks);
                 renderReworkTable(data.reworks);
-                fetchReworkHistory(startDate, endDate); // (V30)
+                fetchReworkHistory(startDate, endDate); 
 
             } catch (err) { console.error(err); }
         }
         
-        // (V30) Fetch History
         async function fetchReworkHistory(startDate, endDate) {
             let url = '/get-rework-history';
             if (startDate && endDate) url += `?start=${startDate}&end=${endDate}`;
@@ -401,7 +414,6 @@
             } catch (err) { console.error(err); }
         }
 
-        // Renderers
         function renderRackTable(racks) {
             rackTableBody.innerHTML = '';
             if (!racks || racks.length === 0) { rackTableBody.innerHTML = '<tr><td colspan="4">ไม่มีข้อมูล</td></tr>'; return; }
@@ -413,6 +425,7 @@
                 rackTableBody.innerHTML += row;
             });
         }
+
         function renderReworkTable(reworks) {
             reworkTableBody.innerHTML = '';
             if (!reworks || reworks.length === 0) { reworkTableBody.innerHTML = '<tr><td colspan="5">ไม่มีงานซ่อมค้าง</td></tr>'; return; }
@@ -424,20 +437,22 @@
                 reworkTableBody.innerHTML += row;
             });
         }
+
         function renderHourlyTable(hourlyData, dailyPlan, shift) {
             hourlyTableBody.innerHTML = '';
             let hours = shift === 'day' ? [8,9,10,11,12,13,14,15,16,17,18,19] : [20,21,22,23,0,1,2,3,4,5,6,7];
             const hourlyPlan = dailyPlan > 0 ? Math.floor(dailyPlan / hours.length) : 0; 
             hours.forEach(h => {
                 const d = hourlyData.find(x => x._id === h) || { ok: 0, ng: 0 };
-                const actual = d.ok + d.ng; const variance = actual - hourlyPlan;
-                const startH = h.toString().padStart(2, '0'); const endH = (h + 1 === 24 ? 0 : h + 1).toString().padStart(2, '0');
+                const actual = d.ok + d.ng; 
+                const variance = actual - hourlyPlan;
+                const startH = h.toString().padStart(2, '0');
+                const endH = (h + 1 === 24 ? 0 : h + 1).toString().padStart(2, '0');
                 const row = `<tr><td>${startH}:00 - ${endH}:00</td><td>${hourlyPlan}</td><td>${actual}</td><td style="color:${variance < 0 ? '#e74c3c' : '#2ecc71'}">${variance}</td><td>${d.ok}</td><td>${d.ng || 0}</td></tr>`;
                 hourlyTableBody.innerHTML += row;
             });
         }
 
-        // Plan Form Logic (With Part Code)
         const planModelSelect = document.getElementById('plan-model');
         const planPartSelect = document.getElementById('plan-part-code');
         const planPartGroup = document.getElementById('plan-part-group');
@@ -466,16 +481,26 @@
                 target_quantity: document.getElementById('plan-target').value
             };
             await fetch('/set-plan', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
-            alert("บันทึก Plan เรียบร้อย!"); document.getElementById('btn-filter').click(); 
+            alert("บันทึก Plan เรียบร้อย!");
+            document.getElementById('btn-filter').click(); 
         });
 
+        // --- (V23) Add User with Requester ID ---
         document.getElementById('add-user-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const body = { employee_id: document.getElementById('new-empid').value, username: document.getElementById('new-username').value, password: document.getElementById('new-password').value, full_name: document.getElementById('new-fullname').value, role: document.getElementById('new-role').value };
+            const body = {
+                requester_id: currentUser._id, // (สำคัญ)
+                employee_id: document.getElementById('new-empid').value,
+                username: document.getElementById('new-username').value,
+                password: document.getElementById('new-password').value,
+                full_name: document.getElementById('new-fullname').value,
+                role: document.getElementById('new-role').value
+            };
             try {
                 const res = await fetch('/register', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
                 const data = await res.json();
-                if (res.ok) { alert("✅ เพิ่มพนักงานสำเร็จ!"); document.getElementById('add-user-form').reset(); } else { alert("❌ Error: " + data.error); }
+                if (res.ok) { alert("✅ " + data.message); document.getElementById('add-user-form').reset(); } 
+                else { alert("❌ " + data.error); }
             } catch (err) { alert("❌ Connect Error"); }
         });
 
