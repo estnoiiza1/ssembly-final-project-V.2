@@ -34,7 +34,7 @@ async function connectToDatabase() {
 }
 
 app.get('/', (req, res) => {
-    const indexPath = path.join(__dirname, 'Index.html');
+    const indexPath = path.join(__dirname, 'index.html');
     if (fs.existsSync(indexPath)) res.sendFile(indexPath);
     else res.status(404).send("❌ Error: ไม่พบไฟล์ index.html");
 });
@@ -60,7 +60,11 @@ app.post('/update-user', async (req, res) => {
         const { id, username, password, full_name, role, employee_id } = req.body;
         const updateData = { username, full_name, role, employee_id };
         if(password) updateData.password = password; 
-        await db.collection('users').updateOne({ _id: new ObjectId(id) }, { $set: updateData });
+        
+        await db.collection('users').updateOne(
+            { _id: new ObjectId(id) },
+            { $set: updateData }
+        );
         res.send({ message: 'User updated' });
     } catch (err) { res.status(500).send({ error: 'Update Error' }); }
 });
@@ -69,16 +73,23 @@ app.post('/update-user', async (req, res) => {
 app.post('/register', async (req, res) => {
   try {
     const { requester_id, username, password, full_name, role, department, employee_id } = req.body;
+    
     if(requester_id) {
         const requester = await db.collection('users').findOne({ _id: new ObjectId(requester_id) });
         if (requester && requester.role === 'leader' && (role === 'admin' || role === 'leader')) {
             return res.status(403).send({ error: 'Leader สร้างได้เฉพาะ Operator' });
         }
     }
+
     if (!username || !password || !full_name) return res.status(400).send({ error: 'ข้อมูลไม่ครบ' });
     const existingUser = await db.collection('users').findOne({ username });
     if (existingUser) return res.status(400).send({ error: 'Username ซ้ำ' });
-    await db.collection('users').insertOne({ username, password, full_name, role: role || 'operator', department: department || 'General', employee_id: employee_id || '', is_active: true, is_online: false, created_at: new Date() });
+    
+    await db.collection('users').insertOne({ 
+        username, password, full_name, role: role || 'operator', 
+        department: department || 'General', employee_id: employee_id || '', 
+        is_active: true, is_online: false, created_at: new Date() 
+    });
     res.status(201).send({ message: 'User Created' });
   } catch (err) { res.status(500).send({ error: 'Error' }); }
 });
@@ -103,7 +114,7 @@ app.post('/logout', async (req, res) => {
     } catch (err) { res.status(500).send({ error: 'Error' }); }
 });
 
-// --- (V35 อัปเกรด!) log-qc รองรับ Serial Number ---
+// --- (อัปเกรด!) log-qc รองรับ Serial Number ---
 app.post('/log-qc', async (req, res) => {
   try {
     const { model, part_code, status, defect, userId, username, side, serial_number } = req.body;
@@ -111,7 +122,7 @@ app.post('/log-qc', async (req, res) => {
     const newLogEntry = {
       model, 
       part_code: part_code || null, 
-      serial_number: serial_number || '-', // (สำคัญ!) บันทึกเลขชิ้นงาน
+      serial_number: serial_number || '-', // บันทึก Serial Number
       status, 
       defect: defect || null,
       side: side || null, 
@@ -121,7 +132,7 @@ app.post('/log-qc', async (req, res) => {
     };
 
     await db.collection('qc_log').insertOne(newLogEntry);
-    console.log(`✅ QC: ${username} -> ${status} [${part_code || model}] [SN: ${serial_number}]`);
+    console.log(`✅ QC Saved: ${username} -> ${status} [Serial: ${serial_number || '-'}]`);
     res.status(201).send({ message: 'Saved' });
   } catch (err) { 
       console.error(err);
@@ -185,6 +196,7 @@ app.get('/get-admin-dashboard', async (req, res) => {
     let planDateStr = new Date().toISOString().split('T')[0]; 
     let selectedShift = shift || 'day';
     let startDateObj, endDateObj;
+    
     if (start && end) { planDateStr = start; } 
 
     // Timezone Fix (UTC+7)
@@ -205,6 +217,7 @@ app.get('/get-admin-dashboard', async (req, res) => {
     
     let qcQuery = { timestamp: { $gte: startDateObj, $lt: endDateObj } };
     let planQuery = { date_string: planDateStr, shift: selectedShift }; 
+
     if (model && model !== "") { qcQuery.model = model; planQuery.model = model; }
 
     const totalOK = await db.collection('qc_log').countDocuments({ ...qcQuery, status: 'OK' });
@@ -261,4 +274,3 @@ async function startServer() {
   app.listen(PORT, '0.0.0.0', () => console.log(`✅ Server (V35 Final) running on port ${PORT}`));
 }
 startServer();
-
