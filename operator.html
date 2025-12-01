@@ -7,7 +7,7 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;700&display=swap');
         body { font-family: 'Roboto', sans-serif; background-color: #0a0f1a; color: #eaeaea; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-        .main-container { width: 100%; max-width: 900px; background: rgba(10, 20, 40, 0.75); backdrop-filter: blur(10px); border-radius: 15px; border: 1px solid rgba(0, 180, 255, 0.3); padding: 25px; position: relative; }
+        .main-container { width: 100%; max-width: 900px; background: rgba(10, 20, 40, 0.75); backdrop-filter: blur(10px); border-radius: 15px; border: 1px solid rgba(0, 180, 255, 0.3); padding: 25px; }
         
         .header-bar { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0, 180, 255, 0.3); padding-bottom: 15px; margin-bottom: 20px; flex-direction: column; gap: 10px; }
         .user-info strong { font-family: 'Orbitron', sans-serif; color: #00e5ff; }
@@ -21,7 +21,7 @@
         .stat-box h3 { font-family: 'Orbitron', sans-serif; font-size: 36px; margin: 5px 0 0 0; color: #fff; }
         #ok-count { color: #2ecc71; } #ng-count { color: #e74c3c; } #rework-count { color: #f39c12; } #total-count { color: #00e5ff; }
         
-        /* Rework & Total Box Clickable */
+        /* Box Clickable */
         #box-rework-op { cursor: pointer; transition: 0.2s; border: 1px solid #f39c12; }
         #box-rework-op:hover { background: rgba(243, 156, 18, 0.1); transform: scale(1.05); box-shadow: 0 0 15px rgba(243, 156, 18, 0.5); }
         #box-total-op { cursor: pointer; transition: 0.2s; border: 1px solid #00e5ff; }
@@ -48,7 +48,7 @@
         .btn-reset-day { background: transparent; border: 1px solid #e74c3c; color: #e74c3c; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-size: 12px; transition: all 0.2s; }
         .btn-reset-day:hover { background: #e74c3c; color: white; }
 
-        /* (V19) ANDON BAR */
+        /* ANDON BAR */
         .andon-bar { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 20px; padding-top: 15px; border-top: 2px dashed #555; }
         .btn-andon { border: 2px solid; background: transparent; color: #fff; padding: 10px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px; transition: 0.2s; }
         .andon-machine { border-color: #e74c3c; color: #e74c3c; } .andon-machine:hover { background: #e74c3c; color: white; }
@@ -63,7 +63,6 @@
         .reason-btn:hover { background: rgba(255,255,255,0.2); }
         .btn-cancel { background: #555 !important; margin-top: 15px;}
         
-        /* (V18) Serial Input */
         .qty-input-group { margin-bottom: 20px; text-align: left; }
         .qty-input-group label { color: #00e5ff; font-size: 16px; margin-bottom: 5px; display: block; font-weight: bold; }
         .qty-input-group input { width: 100%; padding: 12px; background: #0a0f1a; border: 1px solid #00e5ff; color: #fff; border-radius: 5px; box-sizing: border-box; font-size: 20px; text-align: center; font-family: 'Orbitron', sans-serif; }
@@ -96,8 +95,10 @@
                 <p style="color:#00e5ff;">Total (คลิกดูยอด)</p>
                 <h3 id="total-count">0</h3>
             </div>
+
             <div class="stat-box"><p>OK</p><h3 id="ok-count">0</h3></div>
             <div class="stat-box"><p>NG</p><h3 id="ng-count">0</h3></div>
+            
             <div class="stat-box" id="box-rework-op" onclick="window.location.href='rework_check.html'">
                 <p style="color:#f39c12;">Rework (แตะเพื่อแก้)</p>
                 <h3 id="rework-count">0</h3>
@@ -142,6 +143,7 @@
                 <label>ระบุเลขชิ้นงาน (Serial / Tracking No.):</label>
                 <input type="text" id="input-serial" placeholder="ตัวอย่าง: A-102" autocomplete="off">
             </div>
+
             <div id="ng-options" style="display:none;">
                 <button class="reason-btn" data-reason="Scratch">รอยขีดข่วน</button><button class="reason-btn" data-reason="Short Shot">ฉีดไม่เต็ม</button><button class="reason-btn" data-reason="Color">สีเพี้ยน</button><button class="reason-btn" data-reason="Other">อื่นๆ</button>
             </div>
@@ -159,7 +161,7 @@
                 <thead><tr><th style="text-align:left;">MODEL / PART</th><th>ตรวจทั้งหมด</th><th>OK</th><th>เต็ม (Racks)</th><th>เศษ (Pcs)</th></tr></thead>
                 <tbody id="total-detail-body"></tbody>
             </table>
-            <button class="btn-cancel reason-btn" onclick="document.getElementById('total-detail-modal').style.display='none'">ปิดหน้าต่าง</button>
+            <button class="btn-cancel reason-btn" onclick="closeTotalModal()">ปิดหน้าต่าง</button>
         </div>
     </div>
 
@@ -227,7 +229,6 @@
             }
         }
 
-        // (V18 Updated)
         async function logQcEntry(status, defect = null) {
             const model = modelSelect.value; if (!model) { alert("กรุณาเลือกรุ่น!"); return; }
             let partCode = null; if (model === '581D') { partCode = partCodeSelect.value; if (!partCode) { alert("กรุณาเลือก Part Code!"); return; } }
@@ -236,7 +237,6 @@
             try { const res = await fetch('/log-qc', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) }); if (res.ok) { console.log("Saved!"); fetchStats(); } } catch (err) { alert("Error Saving"); }
         }
         
-        // Andon Trigger
         async function triggerAndon(type) {
             if(!confirm(`ยืนยันแจ้งเตือน: ${type}?`)) return;
             try { await fetch('/trigger-andon', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ type, userId: currentUser._id, username: currentUser.username }) }); alert("🚨 ส่งแจ้งเตือนแล้ว!"); } catch(e) { alert("Fail"); }
@@ -249,14 +249,24 @@
             document.getElementById('total-detail-modal').style.display = 'flex';
         }
 
-        // (V18) Reset Input on Open
+        // (แก้ไข) ฟังก์ชันปิด Modal
+        function closeTotalModal() {
+            document.getElementById('total-detail-modal').style.display = 'none';
+        }
+        
+        // (แถม) คลิกข้างนอกเพื่อปิด
+        window.onclick = function(event) {
+            const m1 = document.getElementById('total-detail-modal');
+            const m2 = document.getElementById('reason-modal');
+            if (event.target === m1) m1.style.display = "none";
+            if (event.target === m2) m2.style.display = "none";
+        }
+
         document.getElementById('btn-ng').onclick = () => { currentActionType = 'NG'; modalTitle.innerText = "ระบุของเสีย (NG)"; modalTitle.style.color = "#e74c3c"; ngOptions.style.display = 'block'; reworkOptions.style.display = 'none'; serialInput.value = ''; serialInput.focus(); modal.style.display = 'flex'; };
         document.getElementById('btn-rework').onclick = () => { currentActionType = 'REWORK'; modalTitle.innerText = "ระบุสาเหตุซ่อม"; modalTitle.style.color = "#f39c12"; ngOptions.style.display = 'none'; reworkOptions.style.display = 'block'; serialInput.value = ''; serialInput.focus(); modal.style.display = 'flex'; };
-        
         document.querySelectorAll('.reason-btn').forEach(btn => { btn.onclick = (e) => { if (e.target.id === 'btn-cancel-modal') return; const reason = e.target.dataset.reason; logQcEntry(currentActionType, reason); modal.style.display = 'none'; }; });
         document.getElementById('btn-cancel-modal').onclick = () => modal.style.display = 'none';
         document.getElementById('btn-ok').onclick = () => { document.getElementById('input-serial').value = '-'; logQcEntry('OK'); };
-
         document.getElementById('btn-undo').addEventListener('click', async () => { if (!confirm('ต้องการลบข้อมูลล่าสุด?')) return; try { const res = await fetch('/undo-last-qc', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: currentUser._id }) }); if (res.ok) { alert('✅ Undo สำเร็จ'); if (currentSide === 'L') lastFullRacks.L = Math.max(0, lastFullRacks.L - 1); if (currentSide === 'R') lastFullRacks.R = Math.max(0, lastFullRacks.R - 1); fetchStats(); } else { alert('❌ ไม่สามารถยกเลิกได้'); } } catch (err) { alert("Error"); } });
         document.getElementById('btn-reset-day').addEventListener('click', async () => { if (!confirm('⚠️ ลบข้อมูลวันนี้ทั้งหมด?')) return; try { const res = await fetch('/reset-today', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: currentUser._id }) }); if (res.ok) { alert('✅ เรียบร้อย!'); lastFullRacks = { L: 0, R: 0 }; fetchStats(); } } catch (err) { alert("Error"); } });
         
@@ -271,7 +281,7 @@
                 document.getElementById('ng-count').innerText = data.ng;
                 document.getElementById('rework-count').innerText = data.rework;
                 document.getElementById('total-count').innerText = data.total;
-                currentDetailsData = data.details; // Store for modal
+                currentDetailsData = data.details; 
                 updateRackUI(data);
             } catch (err) {}
         }
