@@ -1,5 +1,5 @@
 // ==========================================
-//  ASSEMBLY APP BACKEND (V36 - Cycle Time & Efficiency)
+//  ASSEMBLY APP BACKEND (V37 - Full Option + Andon)
 // ==========================================
 
 const express = require('express');
@@ -39,7 +39,7 @@ app.get('/', (req, res) => {
     else res.status(404).send("❌ Error: ไม่พบไฟล์ index.html");
 });
 
-// --- Routes เดิม (Register, Login, Logout, User Mgmt) ---
+// --- User Management Routes ---
 app.get('/get-all-users', async (req, res) => {
     try { const users = await db.collection('users').find({}).sort({ created_at: -1 }).toArray(); res.send(users); } 
     catch (err) { res.status(500).send({ error: 'Error' }); }
@@ -120,7 +120,6 @@ app.get('/get-stats/:userId', async (req, res) => {
   } catch (err) { res.status(500).send({ error: 'Error' }); }
 });
 
-// --- (V36) /set-plan: รับ Cycle Time เพิ่ม ---
 app.post('/set-plan', async (req, res) => {
   try {
     const { date_string, model, part_code, shift, target_quantity, cycle_time } = req.body;
@@ -131,7 +130,7 @@ app.post('/set-plan', async (req, res) => {
       { $set: { 
           date_string, model, shift, part_code: pCode, 
           target_quantity: parseInt(target_quantity),
-          cycle_time: parseInt(cycle_time) || 0 // บันทึก Cycle Time (วินาที/ชิ้น)
+          cycle_time: parseInt(cycle_time) || 0 
       }}, 
       { upsert: true }
     );
@@ -139,7 +138,6 @@ app.post('/set-plan', async (req, res) => {
   } catch (err) { res.status(500).send({ error: 'Error' }); }
 });
 
-// --- (V36) /get-admin-dashboard: คำนวณ Efficiency ---
 app.get('/get-admin-dashboard', async (req, res) => {
   try {
     const { start, end, model, shift } = req.query; 
@@ -170,56 +168,39 @@ app.get('/get-admin-dashboard', async (req, res) => {
 
     if (model && model !== "") { qcQuery.model = model; planQuery.model = model; }
 
-    // 1. ดึงข้อมูล
     const totalOK = await db.collection('qc_log').countDocuments({ ...qcQuery, status: 'OK' });
     const totalNG = await db.collection('qc_log').countDocuments({ ...qcQuery, status: 'NG' });
     const totalRework = await db.collection('qc_log').countDocuments({ ...qcQuery, status: 'REWORK' });
 
     const plans = await db.collection('production_plans').find(planQuery).toArray();
     let totalPlan = 0;
-    let weightedCycleTime = 0; // Cycle Time เฉลี่ย (ถ้ามีหลายแผน)
+    let weightedCycleTime = 0;
 
     plans.forEach(p => {
         totalPlan += p.target_quantity;
-        // (แบบง่าย) ใช้ Cycle Time ของแผนแรกที่เจอ หรือเฉลี่ย
         if (p.cycle_time > 0) weightedCycleTime = p.cycle_time; 
     });
 
-    // 2. คำนวณประสิทธิภาพ (Efficiency)
     let efficiency = 0;
-    let timeVariance = 0; // (นาที)
+    let timeVariance = 0; 
     let status = "On Track";
 
     if (weightedCycleTime > 0) {
-        // คำนวณเวลาที่ผ่านไป (Elapsed Time) เป็นวินาที
         const now = new Date();
-        // ปรับเวลาปัจจุบันเป็น UTC+7 เพื่อเทียบ
-        const nowThai = new Date(now.getTime() + (7 * 60 * 60 * 1000)); 
+        // (คำนวณแบบง่ายๆ โดยไม่ใช้ moment-timezone เพื่อลดความซับซ้อน)
+        // สมมติว่า Server เวลาตรง หรือใกล้เคียง
+        // ถ้าจะให้แม่นยำ 100% บน Cloud ต้องปรับ Logic ตรงนี้เพิ่ม
         
-        // หาเวลาเริ่มต้นกะ (UTC+7)
-        // (หมายเหตุ: การเทียบเวลาจริงจังอาจต้องใช้ Library moment-timezone แต่ใช้วิธีบ้านๆ ไปก่อน)
-        let shiftStart = new Date(startDateObj.getTime() + (7 * 60 * 60 * 1000)); // แปลงกลับเป็นเวลาไทยเพื่อคำนวณ Elapsed
-        let shiftEnd = new Date(endDateObj.getTime() + (7 * 60 * 60 * 1000));
-
         let workingSeconds = 0;
-
-        // ถ้าปัจจุบันอยู่ในช่วงเวลากะ
         if (now >= startDateObj && now <= endDateObj) {
              workingSeconds = (now - startDateObj) / 1000;
         } else if (now > endDateObj) {
-             // ถ้าจบกะแล้ว -> คิดเวลาเต็มกะ
              workingSeconds = (endDateObj - startDateObj) / 1000;
         }
-
-        // หักเวลาพัก (สมมติพัก 60 นาที ถ้าทำงานเกิน 4 ชม.) - (Optional: ใส่เพิ่มทีหลังได้)
         
         if (workingSeconds > 0) {
             const expectedQty = Math.floor(workingSeconds / weightedCycleTime);
-            // Efficiency %
             if (expectedQty > 0) efficiency = ((totalOK / expectedQty) * 100).toFixed(1);
-            
-            // Time Variance (นาที) -> (ได้จริง - เป้า) * C.T. / 60
-            // ถ้าเป็นบวก = เร็วกว่าเป้า, ลบ = ช้ากว่าเป้า
             const diffQty = totalOK - expectedQty;
             timeVariance = Math.round((diffQty * weightedCycleTime) / 60);
             
@@ -232,14 +213,15 @@ app.get('/get-admin-dashboard', async (req, res) => {
     const defectSummary = await db.collection('qc_log').aggregate([{ $match: { ...qcQuery, status: 'NG' } }, { $group: { _id: "$defect", count: { $sum: 1 } } }, { $sort: { count: -1 } }]).toArray();
     const hourlySummary = await db.collection('qc_log').aggregate([{ $match: qcQuery }, { $project: { hour: { $hour: { date: "$timestamp", timezone: "Asia/Bangkok" } }, status: "$status" } }, { $group: { _id: "$hour", ok: { $sum: { $cond: [{ $eq: ["$status", "OK"] }, 1, 0] } }, ng: { $sum: { $cond: [{ $eq: ["$status", "NG"] }, 1, 0] } }, rework: { $sum: { $cond: [{ $eq: ["$status", "REWORK"] }, 1, 0] } } } }, { $sort: { _id: 1 } }]).toArray();
     const rackSummary = await db.collection('qc_log').aggregate([{ $match: { ...qcQuery, status: 'OK' } }, { $group: { _id: { model: "$model", part_code: "$part_code" }, total_ok: { $sum: 1 } } }, { $project: { model: "$_id.model", part_code: "$_id.part_code", total_ok: 1, full_racks: { $floor: { $divide: ["$total_ok", 8] } }, pending_pieces: { $mod: ["$total_ok", 8] } } }, { $sort: { part_code: 1 } }]).toArray();
-    const reworkItems = await db.collection('qc_log').find({ ...qcQuery, status: 'REWORK' }).sort({ timestamp: -1 }).toArray();
+    
+    // (แก้ให้ดึง Rework ทั้งหมดที่ค้าง ไม่สนวันที่)
+    const reworkItems = await db.collection('qc_log').find({ status: 'REWORK' }).sort({ timestamp: -1 }).toArray();
 
     res.send({
       kpi: { 
           plan: totalPlan, 
           ok: totalOK, ng: totalNG, rework: totalRework, 
           variance: totalOK - totalPlan,
-          // (V36 ใหม่) ข้อมูลประสิทธิภาพ
           efficiency: efficiency,
           timeVariance: timeVariance,
           status: status,
@@ -268,12 +250,29 @@ app.get('/get-rework-history', async (req, res) => {
     res.status(200).send(history);
   } catch (err) { res.status(500).send({ error: 'History Error' }); }
 });
-app.get('/get-active-users', async (req, res) => {
-    try { const users = await db.collection('users').find({ is_online: true }).project({ _id: 1, full_name: 1, last_login: 1 }).toArray(); res.send(users); } catch (err) { res.status(500).send({ error: 'Error' }); }
+
+// ==========================================
+//  (V38) ระบบ ANDON (แจ้งเตือนฉุกเฉิน)
+// ==========================================
+app.post('/trigger-andon', async (req, res) => {
+  try {
+    const { type, userId, username } = req.body;
+    await db.collection('andon_logs').insertOne({ type: type, userId: new ObjectId(userId), username: username, status: 'OPEN', created_at: new Date() });
+    console.log(`🚨 ANDON ALERT: ${type} from ${username}`);
+    res.status(200).send({ message: 'Alert Sent' });
+  } catch (err) { res.status(500).send({ error: 'Error' }); }
+});
+app.get('/get-active-andon', async (req, res) => {
+  try { const alerts = await db.collection('andon_logs').find({ status: 'OPEN' }).sort({ created_at: 1 }).toArray(); res.send(alerts); } 
+  catch (err) { res.status(500).send({ error: 'Error' }); }
+});
+app.post('/resolve-andon', async (req, res) => {
+  try { const { id, resolver } = req.body; await db.collection('andon_logs').updateOne({ _id: new ObjectId(id) }, { $set: { status: 'RESOLVED', resolved_by: resolver, resolved_at: new Date() } }); res.status(200).send({ message: 'Resolved' }); } 
+  catch (err) { res.status(500).send({ error: 'Error' }); }
 });
 
 async function startServer() {
   await connectToDatabase();
-  app.listen(PORT, '0.0.0.0', () => console.log(`✅ Server (V36) running on port ${PORT}`));
+  app.listen(PORT, '0.0.0.0', () => console.log(`✅ Server (V37 Final) running on port ${PORT}`));
 }
 startServer();
