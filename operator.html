@@ -7,7 +7,7 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;700&display=swap');
         body { font-family: 'Roboto', sans-serif; background-color: #0a0f1a; color: #eaeaea; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-        .main-container { width: 100%; max-width: 900px; background: rgba(10, 20, 40, 0.75); backdrop-filter: blur(10px); border-radius: 15px; border: 1px solid rgba(0, 180, 255, 0.3); padding: 25px; }
+        .main-container { width: 100%; max-width: 900px; background: rgba(10, 20, 40, 0.75); backdrop-filter: blur(10px); border-radius: 15px; border: 1px solid rgba(0, 180, 255, 0.3); padding: 25px; position: relative; }
         
         .header-bar { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0, 180, 255, 0.3); padding-bottom: 15px; margin-bottom: 20px; flex-direction: column; gap: 10px; }
         .user-info strong { font-family: 'Orbitron', sans-serif; color: #00e5ff; }
@@ -21,7 +21,6 @@
         .stat-box h3 { font-family: 'Orbitron', sans-serif; font-size: 36px; margin: 5px 0 0 0; color: #fff; }
         #ok-count { color: #2ecc71; } #ng-count { color: #e74c3c; } #rework-count { color: #f39c12; } #total-count { color: #00e5ff; }
         
-        /* กล่อง Rework คลิกได้ */
         #box-rework-op { cursor: pointer; transition: 0.2s; border: 1px solid #f39c12; }
         #box-rework-op:hover { background: rgba(243, 156, 18, 0.1); transform: scale(1.05); box-shadow: 0 0 15px rgba(243, 156, 18, 0.5); }
 
@@ -46,14 +45,29 @@
         .btn-reset-day { background: transparent; border: 1px solid #e74c3c; color: #e74c3c; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-size: 12px; transition: all 0.2s; }
         .btn-reset-day:hover { background: #e74c3c; color: white; }
 
+        /* (V19 ใหม่!) ANDON BAR */
+        .andon-bar {
+            display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 20px; padding-top: 15px; border-top: 2px dashed #555;
+        }
+        .btn-andon {
+            border: 2px solid; background: transparent; color: #fff; padding: 10px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px; transition: 0.2s;
+        }
+        .andon-machine { border-color: #e74c3c; color: #e74c3c; } /* แดง */
+        .andon-machine:hover { background: #e74c3c; color: white; }
+        
+        .andon-material { border-color: #f1c40f; color: #f1c40f; } /* เหลือง */
+        .andon-material:hover { background: #f1c40f; color: black; }
+        
+        .andon-leader { border-color: #3498db; color: #3498db; } /* ฟ้า */
+        .andon-leader:hover { background: #3498db; color: white; }
+
+        /* Modals */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 10; justify-content: center; align-items: center; }
         .modal-content { background: rgba(20, 30, 50, 0.95); border: 1px solid #00e5ff; padding: 30px; width: 400px; text-align: center; border-radius: 15px; }
         .modal-content h2 { font-family: 'Orbitron', sans-serif; margin-top: 0; color: #fff; }
         .reason-btn { display: block; width: 100%; padding: 15px; margin-bottom: 10px; background: rgba(255,255,255,0.1); color: white; border: 1px solid #666; cursor: pointer; font-size: 16px; border-radius: 5px; transition: 0.2s; }
         .reason-btn:hover { background: rgba(255,255,255,0.2); }
         .btn-cancel { background: #555 !important; margin-top: 15px;}
-        
-        /* (V18) ช่องกรอก Serial Number */
         .qty-input-group { margin-bottom: 20px; text-align: left; }
         .qty-input-group label { color: #00e5ff; font-size: 16px; margin-bottom: 5px; display: block; font-weight: bold; }
         .qty-input-group input { width: 100%; padding: 12px; background: #0a0f1a; border: 1px solid #00e5ff; color: #fff; border-radius: 5px; box-sizing: border-box; font-size: 20px; text-align: center; font-family: 'Orbitron', sans-serif; }
@@ -72,11 +86,7 @@
                         <option value="320D">REAR COM LAMP 320D</option>
                     </select>
                 </div>
-                <div class="model-selector">
-                    <select id="part-code-select">
-                        <option value="">-- เลือก Part Code --</option>
-                    </select>
-                </div>
+                <div class="model-selector"><select id="part-code-select"><option value="">-- เลือก Part Code --</option></select></div>
                 <button id="btn-logout">ออก</button>
             </div>
         </div>
@@ -112,6 +122,12 @@
             <button class="btn btn-rework" id="btn-rework">♻️ REWORK</button>
             <button class="btn btn-undo" id="btn-undo">↩️<br>ยกเลิก</button>
         </div>
+
+        <div class="andon-bar">
+            <button class="btn-andon andon-machine" onclick="triggerAndon('MACHINE')">🔧 เครื่องจักรเสีย</button>
+            <button class="btn-andon andon-material" onclick="triggerAndon('MATERIAL')">📦 วัสดุหมด</button>
+            <button class="btn-andon andon-leader" onclick="triggerAndon('LEADER')">🆘 เรียกหัวหน้า</button>
+        </div>
         
         <div class="reset-container">
             <button class="btn-reset-day" id="btn-reset-day">🗑️ ล้างข้อมูลวันนี้ (Start New Day)</button>
@@ -121,23 +137,12 @@
     <div class="modal-overlay" id="reason-modal">
         <div class="modal-content">
             <h2 id="modal-title">ระบุสาเหตุ</h2>
-            
-            <div class="qty-input-group">
-                <label>ระบุเลขชิ้นงาน (Serial / Tracking No.):</label>
-                <input type="text" id="input-serial" placeholder="ตัวอย่าง: A-102" autocomplete="off">
-            </div>
-
+            <div class="qty-input-group"><label>ระบุเลขชิ้นงาน (Serial / Tracking No.):</label><input type="text" id="input-serial" placeholder="ตัวอย่าง: A-102" autocomplete="off"></div>
             <div id="ng-options" style="display:none;">
-                <button class="reason-btn" data-reason="Scratch">รอยขีดข่วน</button>
-                <button class="reason-btn" data-reason="Short Shot">ฉีดไม่เต็ม</button>
-                <button class="reason-btn" data-reason="Color">สีเพี้ยน</button>
-                <button class="reason-btn" data-reason="Other">อื่นๆ</button>
+                <button class="reason-btn" data-reason="Scratch">รอยขีดข่วน</button><button class="reason-btn" data-reason="Short Shot">ฉีดไม่เต็ม</button><button class="reason-btn" data-reason="Color">สีเพี้ยน</button><button class="reason-btn" data-reason="Other">อื่นๆ</button>
             </div>
             <div id="rework-options" style="display:none;">
-                <button class="reason-btn" data-reason="Flash">ตัดครีบ (Flash)</button>
-                <button class="reason-btn" data-reason="Contamination">สิ่งแปลกปลอม</button>
-                <button class="reason-btn" data-reason="Assembly">งานประกอบผิด</button>
-                <button class="reason-btn" data-reason="Cleaning">ทำความสะอาด</button>
+                <button class="reason-btn" data-reason="Flash">ตัดครีบ (Flash)</button><button class="reason-btn" data-reason="Contamination">สิ่งแปลกปลอม</button><button class="reason-btn" data-reason="Assembly">งานประกอบผิด</button><button class="reason-btn" data-reason="Cleaning">ทำความสะอาด</button>
             </div>
             <button class="btn-cancel reason-btn" id="btn-cancel-modal">ยกเลิก</button>
         </div>
@@ -150,27 +155,8 @@
         let currentActionType = ''; 
 
         const partsDatabase = {
-            "581D": [
-                { code: "10117645", name: "PANEL ASSY FR DOOR TRIM RH (B-CAB)" },
-                { code: "10117646", name: "PANEL ASSY FR DOOR TRIM LH (B-CAB)" },
-                { code: "10117647", name: "PANEL ASSY FR DOOR TRIM RH (D-CAB) LOW" },
-                { code: "10117648", name: "PANEL ASSY FR DOOR TRIM LH (D-CAB) LOW" },
-                { code: "10117649", name: "PANEL ASSY FR DOOR TRIM RH (D-CAB) HI" },
-                { code: "10117650", name: "PANEL ASSY FR DOOR TRIM LH (D-CAB) HI" },
-                { code: "10117651", name: "PANEL ASSY FR DOOR TRIM RH (D-CAB) LOW W/Silencer" },
-                { code: "10117652", name: "PANEL ASSY FR DOOR TRIM LH (D-CAB) LOW W/Silencer" },
-                { code: "10117653", name: "PANEL ASSY FR DOOR TRIM RH (D-CAB) HI W/Silencer" },
-                { code: "10117654", name: "PANEL ASSY FR DOOR TRIM LH (D-CAB) HI W/Silencer" },
-                { code: "10117655", name: "PANEL ASSY RR DOOR TRIM RH (D-CAB) W/O Silencer" },
-                { code: "10117656", name: "PANEL ASSY RR DOOR TRIM LH (D-CAB) W/O Silencer" },
-                { code: "10117657", name: "PANEL ASSY RR DOOR TRIM RH (D-CAB) W/ Silencer" },
-                { code: "10117658", name: "PANEL ASSY RR DOOR TRIM LH (D-CAB) W/ Silencer" }
-            ],
-            "320D": [
-                { code: "320D-001", name: "REAR LAMP LEFT" },
-                { code: "320D-002", name: "REAR LAMP RIGHT" },
-                { code: "320D-003", name: "LENS COVER A" }
-            ]
+            "581D": [ { code: "10117645", name: "PANEL ASSY FR DOOR TRIM RH (B-CAB)" }, { code: "10117646", name: "PANEL ASSY FR DOOR TRIM LH (B-CAB)" } ],
+            "320D": [ { code: "320D-001", name: "REAR LAMP LEFT" }, { code: "320D-002", name: "REAR LAMP RIGHT" } ]
         };
 
         const modelSelect = document.getElementById('model-select-dropdown');
@@ -179,17 +165,15 @@
         const modalTitle = document.getElementById('modal-title');
         const ngOptions = document.getElementById('ng-options');
         const reworkOptions = document.getElementById('rework-options');
-        const serialInput = document.getElementById('input-serial'); // (V18)
+        const serialInput = document.getElementById('input-serial');
 
         document.addEventListener('DOMContentLoaded', () => {
             const userJson = localStorage.getItem('assemblyUser');
-            if (!localStorage.getItem('assemblyToken') || !userJson) {
-                window.location.href = '/';
-            } else {
+            if (!localStorage.getItem('assemblyToken') || !userJson) { window.location.href = '/'; } 
+            else {
                 currentUser = JSON.parse(userJson);
                 document.getElementById('user-display').textContent = currentUser.full_name;
-
-                // ปุ่มกลับ Admin
+                
                 if (currentUser.role === 'admin' || currentUser.role === 'leader') {
                     const backBtn = document.createElement('button');
                     backBtn.innerHTML = "❮ กลับ Admin";
@@ -211,30 +195,22 @@
                 partCodeSelect.style.display = 'block';
                 partsDatabase[selectedModel].forEach(p => {
                     const option = document.createElement('option');
-                    option.value = p.code;
-                    option.textContent = `${p.code} - ${p.name.substring(0, 20)}...`;
-                    option.title = p.name;
+                    option.value = p.code; option.textContent = `${p.code}`; option.title = p.name;
                     partCodeSelect.appendChild(option);
                 });
             } else { partCodeSelect.style.display = 'none'; }
             fetchStats();
         });
 
-        function selectSide(side) {
-            currentSide = side;
-            localStorage.setItem('currentSide', side);
-            fetchStats();
-        }
+        function selectSide(side) { currentSide = side; localStorage.setItem('currentSide', side); fetchStats(); }
 
         function updateRackUI(data) {
             document.getElementById('rack-left').className = `rack-side ${currentSide === 'L' ? 'active' : ''}`;
             document.getElementById('rack-right').className = `rack-side ${currentSide === 'R' ? 'active' : ''}`;
 
             if (data) {
-                const leftFull = Math.floor(data.okLeft / 8);
-                const leftCurrent = data.okLeft % 8;
-                const rightFull = Math.floor(data.okRight / 8);
-                const rightCurrent = data.okRight % 8;
+                const leftFull = Math.floor(data.okLeft / 8); const leftCurrent = data.okLeft % 8;
+                const rightFull = Math.floor(data.okRight / 8); const rightCurrent = data.okRight % 8;
 
                 document.getElementById('count-left').innerText = leftCurrent;
                 document.getElementById('full-racks-left').innerText = leftFull;
@@ -243,67 +219,44 @@
 
                 if (leftFull > lastFullRacks.L && currentSide === 'L') alert("🎉 แล็คซ้ายเต็มแล้ว! (8 ชิ้น)");
                 if (rightFull > lastFullRacks.R && currentSide === 'R') alert("🎉 แล็คขวาเต็มแล้ว! (8 ชิ้น)");
-                lastFullRacks.L = leftFull;
-                lastFullRacks.R = rightFull;
+                lastFullRacks.L = leftFull; lastFullRacks.R = rightFull;
             }
         }
 
         async function logQcEntry(status, defect = null) {
             const model = modelSelect.value;
             if (!model) { alert("กรุณาเลือกรุ่น!"); return; }
-            
-            let partCode = null;
-            if (model === '581D') {
-                partCode = partCodeSelect.value;
-                if (!partCode) { alert("กรุณาเลือก Part Code!"); return; }
-            }
+            let partCode = model === '581D' ? partCodeSelect.value : null;
+            if (model === '581D' && !partCode) { alert("กรุณาเลือก Part Code!"); return; }
 
-            // (V18) รับ Serial Number
             const serialNumber = document.getElementById('input-serial').value || '-';
 
             const body = {
-                model, part_code: partCode,
-                status, defect,
-                userId: currentUser._id,
-                username: currentUser.username,
-                side: status === 'OK' ? currentSide : null,
-                serial_number: serialNumber // ส่งไป Server
+                model, part_code: partCode, status, defect,
+                userId: currentUser._id, username: currentUser.username,
+                side: status === 'OK' ? currentSide : null, serial_number: serialNumber
             };
 
             try {
-                const res = await fetch('/log-qc', {
-                    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
-                });
-                if (res.ok) {
-                    console.log("Saved!");
-                    fetchStats();
-                }
+                const res = await fetch('/log-qc', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+                if (res.ok) { fetchStats(); }
             } catch (err) { alert("Error Saving"); }
         }
+        
+        // (V19) ฟังก์ชันแจ้งเตือน Andon
+        async function triggerAndon(type) {
+            if(!confirm(`ยืนยันการแจ้งเตือน: ${type} ?`)) return;
+            try {
+                await fetch('/trigger-andon', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ type: type, userId: currentUser._id, username: currentUser.username })
+                });
+                alert("🚨 ส่งแจ้งเตือนเรียบร้อย!");
+            } catch(e) { alert("ส่งแจ้งเตือนไม่สำเร็จ"); }
+        }
 
-        // เปิด Modal NG
-        document.getElementById('btn-ng').onclick = () => {
-            currentActionType = 'NG';
-            modalTitle.innerText = "ระบุของเสีย (NG)";
-            modalTitle.style.color = "#e74c3c"; 
-            ngOptions.style.display = 'block';
-            reworkOptions.style.display = 'none';
-            serialInput.value = ''; // เคลียร์
-            serialInput.focus();
-            modal.style.display = 'flex';
-        };
-
-        // เปิด Modal Rework
-        document.getElementById('btn-rework').onclick = () => {
-            currentActionType = 'REWORK';
-            modalTitle.innerText = "ระบุสาเหตุซ่อม (REWORK)";
-            modalTitle.style.color = "#f39c12"; 
-            ngOptions.style.display = 'none';
-            reworkOptions.style.display = 'block';
-            serialInput.value = ''; // เคลียร์
-            serialInput.focus();
-            modal.style.display = 'flex';
-        };
+        document.getElementById('btn-ng').onclick = () => { currentActionType = 'NG'; modalTitle.innerText = "ระบุของเสีย (NG)"; modalTitle.style.color = "#e74c3c"; ngOptions.style.display = 'block'; reworkOptions.style.display = 'none'; serialInput.value = ''; serialInput.focus(); modal.style.display = 'flex'; };
+        document.getElementById('btn-rework').onclick = () => { currentActionType = 'REWORK'; modalTitle.innerText = "ระบุสาเหตุซ่อม"; modalTitle.style.color = "#f39c12"; ngOptions.style.display = 'none'; reworkOptions.style.display = 'block'; serialInput.value = ''; serialInput.focus(); modal.style.display = 'flex'; };
         
         document.querySelectorAll('.reason-btn').forEach(btn => {
             btn.onclick = (e) => {
@@ -315,36 +268,22 @@
         });
 
         document.getElementById('btn-cancel-modal').onclick = () => modal.style.display = 'none';
-        
-        // OK ไม่ต้องมี Serial (หรือถ้าอยากใส่ก็เปิด Modal ได้)
-        document.getElementById('btn-ok').onclick = () => {
-            document.getElementById('input-serial').value = '-'; // ไม่มี Serial
-            logQcEntry('OK');
-        };
+        document.getElementById('btn-ok').onclick = () => { document.getElementById('input-serial').value = '-'; logQcEntry('OK'); };
 
         document.getElementById('btn-undo').addEventListener('click', async () => {
-            if (!confirm('ต้องการลบข้อมูลล่าสุดใช่หรือไม่?')) return;
+            if (!confirm('ลบข้อมูลล่าสุด?')) return;
             try {
-                const res = await fetch('/undo-last-qc', {
-                    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: currentUser._id })
-                });
-                if (res.ok) {
-                    alert('✅ ยกเลิกข้อมูลล่าสุดเรียบร้อย');
-                    if (currentSide === 'L') lastFullRacks.L = Math.max(0, lastFullRacks.L - 1);
-                    if (currentSide === 'R') lastFullRacks.R = Math.max(0, lastFullRacks.R - 1);
-                    fetchStats();
-                } else { alert('❌ ไม่สามารถยกเลิกได้'); }
-            } catch (err) { alert("❌ เชื่อมต่อ Server ไม่ได้"); }
+                const res = await fetch('/undo-last-qc', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: currentUser._id }) });
+                if (res.ok) { alert('✅ Undo สำเร็จ'); if (currentSide === 'L') lastFullRacks.L = Math.max(0, lastFullRacks.L - 1); if (currentSide === 'R') lastFullRacks.R = Math.max(0, lastFullRacks.R - 1); fetchStats(); }
+            } catch (err) { alert("Error"); }
         });
 
         document.getElementById('btn-reset-day').addEventListener('click', async () => {
             if (!confirm('⚠️ ลบข้อมูลวันนี้ทั้งหมด?')) return;
             try {
-                const res = await fetch('/reset-today', {
-                    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: currentUser._id })
-                });
-                if (res.ok) { alert('✅ เรียบร้อย!'); lastFullRacks = { L: 0, R: 0 }; fetchStats(); }
-            } catch (err) { alert("❌ Error Resetting"); }
+                const res = await fetch('/reset-today', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: currentUser._id }) });
+                if (res.ok) { alert('✅ รีเซ็ตสำเร็จ'); lastFullRacks = { L: 0, R: 0 }; fetchStats(); }
+            } catch (err) { alert("Error"); }
         });
         
         async function fetchStats() {
@@ -352,7 +291,6 @@
                 const selectedModel = modelSelect.value;
                 let url = `/get-stats/${currentUser._id}`;
                 if(selectedModel) url += `?model=${encodeURIComponent(selectedModel)}`;
-
                 const res = await fetch(url);
                 const data = await res.json();
                 document.getElementById('ok-count').innerText = data.ok;
@@ -364,20 +302,9 @@
         }
         
         modelSelect.addEventListener('change', () => { fetchStats(); });
-
         document.getElementById('btn-logout').onclick = async () => { 
-            if(currentUser && currentUser._id) {
-                try {
-                    await fetch('/logout', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({ userId: currentUser._id })
-                    });
-                } catch(e) {}
-            }
-            localStorage.removeItem('assemblyToken'); 
-            localStorage.removeItem('assemblyUser');
-            window.location.href = '/'; 
+            if(currentUser && currentUser._id) { try { await fetch('/logout', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: currentUser._id }) }); } catch(e) {} }
+            localStorage.removeItem('assemblyToken'); localStorage.removeItem('assemblyUser'); window.location.href = '/'; 
         };
     </script>
 </body>
